@@ -1,0 +1,33 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check if a user is an admin
+    function isSuperAdmin(userId) {
+      // Check the config document for the list of admins
+      let adminEmails = get(/databases/$(database)/documents/config/admins).data.admins;
+      // Get the requesting user's email from their own user document
+      let userEmail = get(/databases/$(database)/documents/users/$(userId)).data.email;
+      // Check if the user's email is in the admin list
+      return userEmail in adminEmails || userEmail == "anmolmahajan9@gmail.com";
+    }
+
+    // Users can create and update their own document.
+    match /users/{userId} {
+      allow read, update, write: if request.auth != null && request.auth.uid == userId;
+      // Admins can list/read any user's profile
+      allow list, get: if request.auth != null && isSuperAdmin(request.auth.uid);
+    }
+    
+    // Config documents are only accessible by admins
+    match /config/{docId} {
+        allow read, write: if request.auth != null && isSuperAdmin(request.auth.uid);
+    }
+
+    // Deny any other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
