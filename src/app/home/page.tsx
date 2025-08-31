@@ -85,7 +85,7 @@ export default function HomePage() {
         <section className="py-20">
           <div className="container mx-auto px-4 text-center">
             <h2 className="text-3xl md:text-4xl font-bold font-headline mb-12">How It Works</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-12 max-w-5xl mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-12 max-w-3xl mx-auto">
               <div className="flex flex-col items-center">
                 <div className="flex items-center justify-center h-16 w-16 rounded-full bg-primary/10 border-2 border-primary/20 text-primary mb-4">
                   <Upload className="h-8 w-8" />
@@ -95,16 +95,9 @@ export default function HomePage() {
               </div>
               <div className="flex flex-col items-center">
                 <div className="flex items-center justify-center h-16 w-16 rounded-full bg-primary/10 border-2 border-primary/20 text-primary mb-4">
-                  <Wand2 className="h-8 w-8" />
-                </div>
-                <h3 className="text-xl font-bold mb-2">2. Generate Ideas</h3>
-                <p className="text-muted-foreground">Our AI generates creative photoshoot concepts tailored to your product.</p>
-              </div>
-              <div className="flex flex-col items-center">
-                <div className="flex items-center justify-center h-16 w-16 rounded-full bg-primary/10 border-2 border-primary/20 text-primary mb-4">
                   <Star className="h-8 w-8" />
                 </div>
-                <h3 className="text-xl font-bold mb-2">3. Refine &amp; Download</h3>
+                <h3 className="text-xl font-bold mb-2">2. Refine &amp; Download</h3>
                 <p className="text-muted-foreground">Select your favorite, refine it with simple text prompts, and download.</p>
               </div>
             </div>
