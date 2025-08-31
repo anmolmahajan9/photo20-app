@@ -3,7 +3,7 @@
 import admin from '@/lib/firebaseAdmin';
 import { z } from 'zod';
 
-const PERMANENT_SUPER_ADMIN = 'anmol@suitable.ai';
+const PERMANENT_SUPER_ADMIN = 'anmolmahajan9@gmail.com';
 
 async function verifyToken(idToken: string) {
     try {

@@ -22,7 +22,7 @@ function AdminPage() {
     const [newAdmin, setNewAdmin] = useState('');
     const [isLoading, setIsLoading] = useState(true);
     
-    const PERMANENT_SUPER_ADMIN = 'anmol@suitable.ai';
+    const PERMANENT_SUPER_ADMIN = 'anmolmahajan9@gmail.com';
 
     const fetchData = async () => {
         setIsLoading(true);
