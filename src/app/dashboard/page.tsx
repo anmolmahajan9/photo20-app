@@ -254,7 +254,8 @@ function DashboardPage() {
       }
   };
 
-  const downloadImage = async (image: string | null) => {
+  const downloadImage = async (e: React.MouseEvent<HTMLButtonElement>, image: string | null) => {
+    e.stopPropagation();
     if (!image) return;
     const link = document.createElement('a');
     link.href = image;
@@ -264,7 +265,8 @@ function DashboardPage() {
     document.body.removeChild(link);
   };
 
-  const copyImage = async (image: string | null) => {
+  const copyImage = async (e: React.MouseEvent<HTMLButtonElement>, image: string | null) => {
+    e.stopPropagation();
     if (!image) return;
     try {
       const response = await fetch(image);
@@ -417,6 +419,16 @@ function DashboardPage() {
                       )}
                     >
                        <Image src={image} alt={`Generated product ${index + 1}`} fill sizes="50vw" className="object-contain" />
+                       <div className="absolute top-2 right-2 z-10 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button size="icon" variant="outline" className="h-8 w-8 bg-black/50 hover:bg-black/75" onClick={(e) => copyImage(e, image)}>
+                                <Copy className="h-4 w-4 text-white" />
+                                <span className="sr-only">Copy Image</span>
+                            </Button>
+                            <Button size="icon" variant="outline" className="h-8 w-8 bg-black/50 hover:bg-black/75" onClick={(e) => downloadImage(e, image)}>
+                                <Download className="h-4 w-4 text-white" />
+                                <span className="sr-only">Download Image</span>
+                            </Button>
+                        </div>
                     </div>
                   ))}
                 </div>
@@ -430,11 +442,6 @@ function DashboardPage() {
 
           {activeImage && !isLoading && !isVarying && (
             <>
-              <div className="flex-1 flex gap-2">
-                <Button size="sm" variant="outline" onClick={() => copyImage(activeImage)} className="w-full"><Copy className="h-4 w-4 mr-2" />Copy</Button>
-                <Button size="sm" variant="outline" onClick={() => downloadImage(activeImage)} className="w-full"><Download className="h-4 w-4 mr-2" />Download</Button>
-              </div>
-
               <div className="space-y-3 pt-4 border-t">
                 <Label htmlFor="refinement-prompt" className="text-lg font-semibold font-headline flex items-center gap-2">
                   <Sparkles className="text-accent" />
@@ -486,3 +493,5 @@ function DashboardPage() {
 }
 
 export default withAuth(DashboardPage);
+
+    
