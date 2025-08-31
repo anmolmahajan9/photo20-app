@@ -2,6 +2,7 @@
 
 import { generateAITheme } from '@/ai/flows/generate-ai-theme';
 import { getPhotoThemeIdeas } from '@/ai/flows/get-photo-theme-ideas';
+import { generateVariations } from '@/ai/flows/generate-variations';
 import { z } from 'zod';
 import { auth } from 'firebase-admin';
 import admin from '@/lib/firebaseAdmin';
@@ -91,6 +92,34 @@ export async function handleRefineImage(originalImage: string, prompt: string) {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred during image generation.';
     console.error('Error in handleRefineImage:', error);
+    return { error: errorMessage };
+  }
+}
+
+const variationsActionSchema = z.object({
+  imageToVary: z.string().startsWith('data:image', { message: 'Invalid image format. Please provide a data URI.' }),
+});
+
+
+export async function handleGenerateVariations(imageToVary: string) {
+  try {
+    const validatedArgs = variationsActionSchema.parse({ imageToVary });
+    
+    const result = await generateVariations({
+      photoDataUri: validatedArgs.imageToVary,
+    });
+    
+    // This is a placeholder for getting the current user, as auth().currentUser is not reliable on serverless functions.
+    // In a real app, you MUST pass the user's ID token from the client to this server action,
+    // verify it, and then get the UID.
+    // For now, we are skipping the user data update part as we cannot get the user object.
+
+
+    return { generatedImages: result.variations };
+
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred during image generation.';
+    console.error('Error in handleGenerateVariations:', error);
     return { error: errorMessage };
   }
 }
