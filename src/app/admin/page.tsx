@@ -39,8 +39,16 @@ function AdminPage() {
         const result = await getAccessAndAdmins(idToken);
         if (result.error) {
             toast({ title: 'Error fetching data', description: result.error, variant: 'destructive' });
+            setAllUsers([]);
+            setAdmins([]);
         } else {
-            setAllUsers(result.allUsers || []);
+            // Sort users by lastLogin date, most recent first
+            const sortedUsers = (result.allUsers || []).sort((a, b) => {
+                if (!a.lastLogin) return 1;
+                if (!b.lastLogin) return -1;
+                return new Date(b.lastLogin).getTime() - new Date(a.lastLogin).getTime();
+            });
+            setAllUsers(sortedUsers);
             setAdmins(result.admins || []);
         }
         setIsLoading(false);
@@ -124,15 +132,15 @@ function AdminPage() {
                                <TableHeader>
                                    <TableRow>
                                        <TableHead>User</TableHead>
-                                       <TableHead>Last Login</TableHead>
+                                       <TableHead className="text-right">Last Login</TableHead>
                                    </TableRow>
                                </TableHeader>
                                <TableBody>
                                    {isLoading ? (
                                         Array.from({ length: 5 }).map((_, i) => (
                                             <TableRow key={i}>
-                                                <TableCell><Skeleton className="h-8 w-full" /></TableCell>
-                                                <TableCell><Skeleton className="h-8 w-full" /></TableCell>
+                                                <TableCell><Skeleton className="h-8 w-3/4" /></TableCell>
+                                                <TableCell><Skeleton className="h-8 w-1/2 ml-auto" /></TableCell>
                                             </TableRow>
                                         ))
                                    ) : allUsers.length > 0 ? (

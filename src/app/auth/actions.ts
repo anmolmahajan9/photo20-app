@@ -74,7 +74,8 @@ export async function getAccessAndAdmins(adminIdToken: string) {
 
     try {
         const [usersSnapshot, adminDoc] = await Promise.all([
-            admin.firestore().collection('users').orderBy('lastLogin', 'desc').get(),
+            // Query without ordering to avoid needing a composite index
+            admin.firestore().collection('users').get(),
             admin.firestore().doc('config/admins').get()
         ]);
         
