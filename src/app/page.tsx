@@ -9,10 +9,11 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { handleGenerateImage } from './actions';
-import { Upload, Download, Wand2, Image as ImageIcon, Camera } from 'lucide-react';
+import { Upload, Download, Wand2, Image as ImageIcon, Camera, RefreshCw } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 
 const themes = [
@@ -46,16 +47,27 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [mode, setMode] = useState<'upload' | 'capture'>('upload');
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
+  const [cameraFacingMode, setCameraFacingMode] = useState<'environment' | 'user'>('environment');
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-
+  const isMobile = useIsMobile();
   const { toast } = useToast();
 
   useEffect(() => {
     const getCameraPermission = async () => {
       if (mode === 'capture') {
+        // Stop any existing stream before starting a new one
+        if (videoRef.current && videoRef.current.srcObject) {
+          const stream = videoRef.current.srcObject as MediaStream;
+          stream.getTracks().forEach(track => track.stop());
+        }
+
         try {
-          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+          const stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { 
+              facingMode: cameraFacingMode 
+            } 
+          });
           setHasCameraPermission(true);
 
           if (videoRef.current) {
@@ -89,8 +101,7 @@ export default function Home() {
         stream.getTracks().forEach(track => track.stop());
       }
     };
-  }, [mode, toast]);
-
+  }, [mode, cameraFacingMode, toast]);
 
   const handleImageUpload = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -119,6 +130,10 @@ export default function Home() {
         setMode('upload'); // Switch back to upload tab to show captured photo
       }
     }
+  };
+  
+  const switchCamera = () => {
+    setCameraFacingMode(prev => prev === 'user' ? 'environment' : 'user');
   };
 
   const generateImage = async () => {
@@ -233,10 +248,18 @@ export default function Home() {
                             </AlertDescription>
                           </Alert>
                       )}
-                      <Button onClick={capturePhoto} disabled={!hasCameraPermission} className="w-full">
-                        <Camera className="mr-2" />
-                        Take Photo
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button onClick={capturePhoto} disabled={!hasCameraPermission} className="w-full">
+                          <Camera className="mr-2" />
+                          Take Photo
+                        </Button>
+                        {isMobile && (
+                          <Button onClick={switchCamera} disabled={!hasCameraPermission} variant="outline" size="icon">
+                             <RefreshCw className="h-4 w-4" />
+                             <span className="sr-only">Switch Camera</span>
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </TabsContent>
                 </Tabs>
@@ -325,3 +348,5 @@ export default function Home() {
     </div>
   );
 }
+
+    
