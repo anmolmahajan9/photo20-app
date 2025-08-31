@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useRef, useEffect, useTransition } from 'react';
+import { useState, useRef, useEffect, KeyboardEvent } from 'react';
 import type { ChangeEvent } from 'react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -201,6 +201,24 @@ function DashboardPage() {
     }
   }
 
+  const handleRefinementKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+        e.preventDefault();
+        if (!isRefining && refinementPrompt) {
+            handleRefinementGeneration();
+        }
+    }
+  };
+
+  const handleInitialKeyDown = (e: KeyboardEvent<HTMLButtonElement>) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+          e.preventDefault();
+          if (!isLoading && originalImage) {
+              handleInitialGeneration();
+          }
+      }
+  };
+
   const downloadImage = (image: string | null) => {
     if (!image) return;
     const link = document.createElement('a');
@@ -311,7 +329,7 @@ function DashboardPage() {
           </div>
         </CardContent>
         <CardFooter>
-          <Button onClick={handleInitialGeneration} disabled={isLoading || !originalImage} className="w-full text-lg py-6">
+          <Button onKeyDown={handleInitialKeyDown} onClick={handleInitialGeneration} disabled={isLoading || !originalImage} className="w-full text-lg py-6">
             {isLoading ? (
               <>
                 <svg className="animate-spin -ml-1 mr-3 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -381,6 +399,7 @@ function DashboardPage() {
                 placeholder="e.g., 'make it brighter', 'change the background to a beach'..."
                 value={refinementPrompt}
                 onChange={(e) => setRefinementPrompt(e.target.value)}
+                onKeyDown={handleRefinementKeyDown}
                 className="min-h-[80px]"
               />
               <Button onClick={handleRefinementGeneration} disabled={isRefining || !refinementPrompt} className="w-full">
@@ -406,6 +425,8 @@ function DashboardPage() {
 
 export default withAuth(DashboardPage);
 
+
+    
 
     
 
