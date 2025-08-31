@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import type { ChangeEvent } from 'react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -9,8 +9,11 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { handleGenerateImage } from './actions';
-import { Upload, Download, Wand2, Image as ImageIcon } from 'lucide-react';
+import { Upload, Download, Wand2, Image as ImageIcon, Camera } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+
 
 const themes = [
   {
@@ -41,7 +44,53 @@ export default function Home() {
   const [selectedTheme, setSelectedTheme] = useState<string>(themes[0].prompt);
   const [customDescription, setCustomDescription] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [mode, setMode] = useState<'upload' | 'capture'>('upload');
+  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
   const { toast } = useToast();
+
+  useEffect(() => {
+    const getCameraPermission = async () => {
+      if (mode === 'capture') {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+          setHasCameraPermission(true);
+
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+          }
+        } catch (error) {
+          console.error('Error accessing camera:', error);
+          setHasCameraPermission(false);
+          toast({
+            variant: 'destructive',
+            title: 'Camera Access Denied',
+            description: 'Please enable camera permissions in your browser settings to use this feature.',
+          });
+        }
+      } else {
+        // Stop camera stream when switching away from capture mode
+        if (videoRef.current && videoRef.current.srcObject) {
+          const stream = videoRef.current.srcObject as MediaStream;
+          stream.getTracks().forEach(track => track.stop());
+          videoRef.current.srcObject = null;
+        }
+      }
+    };
+
+    getCameraPermission();
+
+    // Cleanup function to stop camera when component unmounts
+    return () => {
+      if (videoRef.current && videoRef.current.srcObject) {
+        const stream = videoRef.current.srcObject as MediaStream;
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [mode, toast]);
+
 
   const handleImageUpload = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -55,11 +104,28 @@ export default function Home() {
     }
   };
 
+  const capturePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const context = canvas.getContext('2d');
+      if (context) {
+        context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+        const dataUrl = canvas.toDataURL('image/png');
+        setOriginalImage(dataUrl);
+        setGeneratedImage(null);
+        setMode('upload'); // Switch back to upload tab to show captured photo
+      }
+    }
+  };
+
   const generateImage = async () => {
     if (!originalImage) {
       toast({
         title: 'Error',
-        description: 'Please upload an image first.',
+        description: 'Please upload or capture an image first.',
         variant: 'destructive',
       });
       return;
@@ -126,28 +192,55 @@ export default function Home() {
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="image-upload" className="text-lg font-semibold font-headline">1. Upload Photo</Label>
-                <div className="relative border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-accent transition-colors">
-                  <input
-                    id="image-upload"
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                  />
-                  {originalImage ? (
-                    <div className="relative w-full h-48">
-                      <Image src={originalImage} alt="Uploaded product" fill sizes="50vw" className="object-contain rounded-md"/>
+                <Label htmlFor="image-upload" className="text-lg font-semibold font-headline">1. Provide a Photo</Label>
+                <Tabs value={mode} onValueChange={(value) => setMode(value as 'upload' | 'capture')} className="w-full">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="upload"><Upload className="mr-2 h-4 w-4" />Upload</TabsTrigger>
+                    <TabsTrigger value="capture"><Camera className="mr-2 h-4 w-4" />Capture</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="upload">
+                    <div className="relative border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-accent transition-colors mt-2">
+                      <input
+                        id="image-upload"
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      />
+                      {originalImage ? (
+                        <div className="relative w-full h-48">
+                          <Image src={originalImage} alt="Uploaded product" fill sizes="50vw" className="object-contain rounded-md"/>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center space-y-2 text-muted-foreground">
+                          <Upload className="w-10 h-10" />
+                          <p>Drag &amp; drop or click to upload</p>
+                        </div>
+                      )}
                     </div>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center space-y-2 text-muted-foreground">
-                      <Upload className="w-10 h-10" />
-                      <p>Drag &amp; drop or click to upload</p>
+                  </TabsContent>
+                  <TabsContent value="capture">
+                    <div className="mt-2 space-y-4">
+                      <div className="relative w-full aspect-video bg-muted/20 rounded-lg flex items-center justify-center border">
+                        <video ref={videoRef} className="w-full aspect-video rounded-md" autoPlay muted playsInline />
+                        <canvas ref={canvasRef} className="hidden" />
+                      </div>
+                      {hasCameraPermission === false && (
+                         <Alert variant="destructive">
+                            <AlertTitle>Camera Access Required</AlertTitle>
+                            <AlertDescription>
+                              Please allow camera access in your browser to use this feature.
+                            </AlertDescription>
+                          </Alert>
+                      )}
+                      <Button onClick={capturePhoto} disabled={!hasCameraPermission} className="w-full">
+                        <Camera className="mr-2" />
+                        Take Photo
+                      </Button>
                     </div>
-                  )}
-                </div>
+                  </TabsContent>
+                </Tabs>
               </div>
-
               <div className="space-y-3">
                 <Label className="text-lg font-semibold font-headline">2. Choose a Theme</Label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
