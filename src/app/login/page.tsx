@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useRouter } from 'next/navigation';
@@ -40,6 +41,13 @@ export default function LoginPage() {
                 description: 'You have successfully signed in.',
             });
         } catch (error: any) {
+            // This error code means the user closed the popup.
+            // We can safely ignore it.
+            if (error.code === 'auth/cancelled-popup-request') {
+                console.log('Sign-in cancelled by user.');
+                return;
+            }
+
             console.error(error);
             toast({
                 title: 'Sign-in Failed',
