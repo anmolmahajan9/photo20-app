@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
@@ -9,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { handleGenerateImage } from '../actions';
-import { Upload, Download, Wand2, Camera, RefreshCw } from 'lucide-react';
+import { Upload, Download, Wand2, Camera, RefreshCw, Sparkles } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
@@ -42,9 +43,11 @@ const themes = [
 
 function DashboardPage() {
   const [originalImage, setOriginalImage] = useState<string | null>(null);
+  const [displayImage, setDisplayImage] = useState<string | null>(null);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [selectedTheme, setSelectedTheme] = useState<string>(themes[0].prompt);
   const [customDescription, setCustomDescription] = useState<string>('');
+  const [refinementPrompt, setRefinementPrompt] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [mode, setMode] = useState<'upload' | 'capture'>('upload');
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
@@ -106,8 +109,11 @@ function DashboardPage() {
     if (file) {
       const reader = new FileReader();
       reader.onload = (event) => {
-        setOriginalImage(event.target?.result as string);
+        const result = event.target?.result as string;
+        setOriginalImage(result);
+        setDisplayImage(result);
         setGeneratedImage(null);
+        setRefinementPrompt('');
       };
       reader.readAsDataURL(file);
     }
@@ -124,7 +130,9 @@ function DashboardPage() {
         context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
         const dataUrl = canvas.toDataURL('image/png');
         setOriginalImage(dataUrl);
+        setDisplayImage(dataUrl);
         setGeneratedImage(null);
+        setRefinementPrompt('');
         setMode('upload');
       }
     }
@@ -134,27 +142,19 @@ function DashboardPage() {
     setCameraFacingMode(prev => prev === 'user' ? 'environment' : 'user');
   };
 
-  const generateImage = async () => {
-    if (!originalImage) {
-      toast({
-        title: 'Error',
-        description: 'Please upload or capture an image first.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
+  const generateImage = async (image: string, prompt: string) => {
     setIsLoading(true);
     setGeneratedImage(null);
 
-    const finalPrompt = `${selectedTheme} ${customDescription}`;
-
     try {
-      const result = await handleGenerateImage(originalImage, finalPrompt);
+      const result = await handleGenerateImage(image, prompt);
       if (result.error) {
         throw new Error(result.error);
       }
       setGeneratedImage(result.generatedPhotoDataUri || null);
+      // Set the new generated image as the base for the next refinement
+      setDisplayImage(result.generatedPhotoDataUri || null); 
+      setRefinementPrompt(''); // Clear refinement prompt
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
       
@@ -174,166 +174,231 @@ function DashboardPage() {
       setIsLoading(false);
     }
   };
+
+  const handleInitialGeneration = () => {
+    if (!originalImage) {
+      toast({
+        title: 'Error',
+        description: 'Please upload or capture an image first.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    const finalPrompt = `${selectedTheme} ${customDescription}`;
+    generateImage(originalImage, finalPrompt);
+  };
   
+  const handleRefinementGeneration = () => {
+    if (!displayImage) {
+        toast({
+            title: 'Error',
+            description: 'No image to refine. Please generate an image first.',
+            variant: 'destructive'
+        });
+        return;
+    }
+    if (!refinementPrompt) {
+        toast({
+            title: 'Error',
+            description: 'Please enter your desired changes.',
+            variant: 'destructive'
+        });
+        return;
+    }
+    generateImage(displayImage, refinementPrompt);
+  }
+
   const downloadImage = () => {
     if (!generatedImage) return;
     const link = document.createElement('a');
     link.href = generatedImage;
-    link.download = 'picperfect-product.png';
+    link.download = 'photo20-product.png';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
   return (
-    <>
-      <div className="grid grid-cols-1 gap-8 items-start max-w-2xl mx-auto">
-        <Card className="shadow-lg w-full">
-          <CardHeader>
-            <CardTitle className="font-headline text-2xl flex items-center gap-2">
-              <Wand2 className="text-accent" />
-              Create Your Perfect Shot
-            </CardTitle>
-            <CardDescription>Upload an image and choose a style to transform your product photo.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="image-upload" className="text-lg font-semibold font-headline">1. Provide a Photo</Label>
-              <Tabs value={mode} onValueChange={(value) => setMode(value as 'upload' | 'capture')} className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="upload"><Upload className="mr-2 h-4 w-4" />Upload</TabsTrigger>
-                  <TabsTrigger value="capture"><Camera className="mr-2 h-4 w-4" />Capture</TabsTrigger>
-                </TabsList>
-                <TabsContent value="upload">
-                  <div className="relative border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-accent transition-colors mt-2">
-                    <input
-                      id="image-upload"
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageUpload}
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                    />
-                    {originalImage ? (
-                      <div className="relative w-full h-48">
-                        <Image src={originalImage} alt="Uploaded product" fill sizes="50vw" className="object-contain rounded-md"/>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col items-center justify-center space-y-2 text-muted-foreground">
-                        <Upload className="w-10 h-10" />
-                        <p>Drag &amp; drop or click to upload</p>
-                      </div>
-                    )}
-                  </div>
-                </TabsContent>
-                <TabsContent value="capture">
-                  <div className="mt-2 space-y-4">
-                    <div className="relative w-full aspect-video bg-muted/20 rounded-lg flex items-center justify-center border">
-                      <video ref={videoRef} className="w-full aspect-video rounded-md" autoPlay muted playsInline />
-                      <canvas ref={canvasRef} className="hidden" />
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start max-w-6xl mx-auto">
+      <Card className="shadow-lg w-full">
+        <CardHeader>
+          <CardTitle className="font-headline text-2xl flex items-center gap-2">
+            <Wand2 className="text-accent" />
+            Create Your Perfect Shot
+          </CardTitle>
+          <CardDescription>Upload an image and choose a style to transform your product photo.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="space-y-2">
+            <Label htmlFor="image-upload" className="text-lg font-semibold font-headline">1. Provide a Photo</Label>
+            <Tabs value={mode} onValueChange={(value) => setMode(value as 'upload' | 'capture')} className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="upload"><Upload className="mr-2 h-4 w-4" />Upload</TabsTrigger>
+                <TabsTrigger value="capture"><Camera className="mr-2 h-4 w-4" />Capture</TabsTrigger>
+              </TabsList>
+              <TabsContent value="upload">
+                <div className="relative border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-accent transition-colors mt-2">
+                  <input
+                    id="image-upload"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  />
+                  {displayImage ? (
+                    <div className="relative w-full h-48">
+                      <Image src={displayImage} alt="Uploaded product" fill sizes="50vw" className="object-contain rounded-md"/>
                     </div>
-                    {hasCameraPermission === false && (
-                        <Alert variant="destructive">
-                          <AlertTitle>Camera Access Required</AlertTitle>
-                          <AlertDescription>
-                            Please allow camera access in your browser to use this feature.
-                          </AlertDescription>
-                        </Alert>
-                    )}
-                    <div className="flex gap-2">
-                      <Button onClick={capturePhoto} disabled={!hasCameraPermission} className="w-full">
-                        <Camera className="mr-2" />
-                        Take Photo
+                  ) : (
+                    <div className="flex flex-col items-center justify-center space-y-2 text-muted-foreground">
+                      <Upload className="w-10 h-10" />
+                      <p>Drag &amp; drop or click to upload</p>
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
+              <TabsContent value="capture">
+                <div className="mt-2 space-y-4">
+                  <div className="relative w-full aspect-video bg-muted/20 rounded-lg flex items-center justify-center border">
+                    <video ref={videoRef} className="w-full aspect-video rounded-md" autoPlay muted playsInline />
+                    <canvas ref={canvasRef} className="hidden" />
+                  </div>
+                  {hasCameraPermission === false && (
+                      <Alert variant="destructive">
+                        <AlertTitle>Camera Access Required</AlertTitle>
+                        <AlertDescription>
+                          Please allow camera access in your browser to use this feature.
+                        </AlertDescription>
+                      </Alert>
+                  )}
+                  <div className="flex gap-2">
+                    <Button onClick={capturePhoto} disabled={!hasCameraPermission} className="w-full">
+                      <Camera className="mr-2" />
+                      Take Photo
+                    </Button>
+                    {isMobile && (
+                      <Button onClick={switchCamera} disabled={!hasCameraPermission} variant="outline" size="icon">
+                          <RefreshCw className="h-4 w-4" />
+                          <span className="sr-only">Switch Camera</span>
                       </Button>
-                      {isMobile && (
-                        <Button onClick={switchCamera} disabled={!hasCameraPermission} variant="outline" size="icon">
-                            <RefreshCw className="h-4 w-4" />
-                            <span className="sr-only">Switch Camera</span>
-                        </Button>
-                      )}
-                    </div>
+                    )}
                   </div>
-                </TabsContent>
-              </Tabs>
-            </div>
-            <div className="space-y-3">
-              <Label className="text-lg font-semibold font-headline">2. Choose a Theme</Label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {themes.map((theme) => (
-                  <Button
-                    key={theme.name}
-                    variant={selectedTheme === theme.prompt ? 'default' : 'outline'}
-                    onClick={() => setSelectedTheme(theme.prompt)}
-                    className="h-auto py-2 text-wrap"
-                  >
-                    {theme.name}
-                  </Button>
-                ))}
+                </div>
+              </TabsContent>
+            </Tabs>
+          </div>
+          
+          { !generatedImage ? (
+            <>
+              <div className="space-y-3">
+                <Label className="text-lg font-semibold font-headline">2. Choose a Theme</Label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {themes.map((theme) => (
+                    <Button
+                      key={theme.name}
+                      variant={selectedTheme === theme.prompt ? 'default' : 'outline'}
+                      onClick={() => setSelectedTheme(theme.prompt)}
+                      className="h-auto py-2 text-wrap"
+                    >
+                      {theme.name}
+                    </Button>
+                  ))}
+                </div>
               </div>
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="custom-description" className="text-lg font-semibold font-headline">3. Add Your Touch (Optional)</Label>
+              <div className="space-y-2">
+                <Label htmlFor="custom-description" className="text-lg font-semibold font-headline">3. Add Your Touch (Optional)</Label>
+                <Textarea
+                  id="custom-description"
+                  placeholder="e.g., 'with a backdrop of cherry blossoms', 'on a wooden table'..."
+                  value={customDescription}
+                  onChange={(e) => setCustomDescription(e.target.value)}
+                  className="min-h-[100px]"
+                />
+              </div>
+            </>
+          ) : null}
+
+        </CardContent>
+        <CardFooter>
+          <Button onClick={handleInitialGeneration} disabled={isLoading || !originalImage || !!generatedImage} className="w-full text-lg py-6">
+            {isLoading && !generatedImage ? (
+              <>
+                <svg className="animate-spin -ml-1 mr-3 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Generating...
+              </>
+            ) : (
+              <>
+                <Wand2 className="mr-2" />
+                Generate Image
+              </>
+            )}
+          </Button>
+        </CardFooter>
+      </Card>
+
+      <Card className="shadow-lg w-full">
+        <CardHeader>
+          <CardTitle className="font-headline text-2xl">Generated Image</CardTitle>
+          <CardDescription>Your AI-powered product photo will appear here. You can refine it further below.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="relative w-full aspect-square bg-muted/20 rounded-lg flex items-center justify-center border">
+            {isLoading ? (
+              <div className="flex flex-col items-center gap-4 text-muted-foreground p-8 text-center">
+                <Wand2 className="w-12 h-12 animate-pulse text-accent"/>
+                <p className="text-lg font-medium">AI is crafting your image...<br/>This can take a moment.</p>
+                <Skeleton className="absolute inset-0 w-full h-full" />
+              </div>
+            ) : generatedImage ? (
+              <Image src={generatedImage} alt="Generated product" fill sizes="50vw" className="object-contain rounded-md" />
+            ) : (
+                <div className="flex flex-col items-center gap-4 text-muted-foreground p-8 text-center">
+                    <ImageIcon className="w-12 h-12"/>
+                    <p>Your result will be shown here.</p>
+                </div>
+            )}
+          </div>
+
+          {generatedImage && !isLoading && (
+            <div className="space-y-3 pt-4 border-t">
+              <Label htmlFor="refinement-prompt" className="text-lg font-semibold font-headline flex items-center gap-2">
+                <Sparkles className="text-accent" />
+                4. Refine Your Image (Optional)
+              </Label>
               <Textarea
-                id="custom-description"
-                placeholder="e.g., 'with a backdrop of cherry blossoms', 'on a wooden table'..."
-                value={customDescription}
-                onChange={(e) => setCustomDescription(e.target.value)}
-                className="min-h-[100px]"
+                id="refinement-prompt"
+                placeholder="e.g., 'make it brighter', 'change the background to a beach'..."
+                value={refinementPrompt}
+                onChange={(e) => setRefinementPrompt(e.target.value)}
+                className="min-h-[80px]"
               />
+              <Button onClick={handleRefinementGeneration} disabled={isLoading || !refinementPrompt} className="w-full">
+                 {isLoading ? (
+                    'Regenerating...'
+                 ) : (
+                    'Regenerate with Changes'
+                 )}
+              </Button>
             </div>
-          </CardContent>
+          )}
+        </CardContent>
+        {generatedImage && !isLoading && (
           <CardFooter>
-            <Button onClick={generateImage} disabled={isLoading || !originalImage} className="w-full text-lg py-6">
-              {isLoading ? (
-                <>
-                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <Wand2 className="mr-2" />
-                  Generate Image
-                </>
-              )}
+            <Button onClick={downloadImage} className="w-full" variant="secondary">
+              <Download className="mr-2" />
+              Download Image
             </Button>
           </CardFooter>
-        </Card>
-
-        {(isLoading || generatedImage) && (
-          <Card className="shadow-lg w-full">
-            <CardHeader>
-              <CardTitle className="font-headline text-2xl">Generated Image</CardTitle>
-              <CardDescription>Your AI-powered product photo will appear here.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="relative w-full aspect-square bg-muted/20 rounded-lg flex items-center justify-center border">
-                {isLoading ? (
-                  <div className="flex flex-col items-center gap-4 text-muted-foreground p-8 text-center">
-                    <Wand2 className="w-12 h-12 animate-pulse text-accent"/>
-                    <p className="text-lg font-medium">AI is crafting your image...<br/>This can take a moment.</p>
-                    <Skeleton className="absolute inset-0 w-full h-full" />
-                  </div>
-                ) : generatedImage ? (
-                  <Image src={generatedImage} alt="Generated product" fill sizes="50vw" className="object-contain rounded-md" />
-                ) : null}
-              </div>
-            </CardContent>
-            {generatedImage && !isLoading && (
-              <CardFooter>
-                <Button onClick={downloadImage} className="w-full" variant="secondary">
-                  <Download className="mr-2" />
-                  Download Image
-                </Button>
-              </CardFooter>
-            )}
-          </Card>
         )}
-      </div>
-    </>
+      </Card>
+    </div>
   );
 }
 
 export default withAuth(DashboardPage);
+
+    
