@@ -3,14 +3,13 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, onAuthStateChanged } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { verifyAdminAccess } from '@/app/auth/actions';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface AuthContextType {
   user: User | null;
-  // isAuthorized is now equivalent to being logged in.
-  // The property is kept for minimal disruption to other components, but could be removed.
   isAuthorized: boolean | null; 
   isSuperAdmin: boolean | null;
   loading: boolean;
@@ -31,6 +30,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setError(null);
 
       if (firebaseUser) {
+        // Store user data in Firestore
+        const userRef = doc(db, 'users', firebaseUser.uid);
+        setDoc(userRef, {
+            uid: firebaseUser.uid,
+            email: firebaseUser.email,
+            displayName: firebaseUser.displayName,
+            photoURL: firebaseUser.photoURL,
+            lastLogin: serverTimestamp(),
+        }, { merge: true });
+        
         setUser(firebaseUser);
         const cachedAuth = sessionStorage.getItem(`auth_${firebaseUser.uid}`);
         
@@ -41,7 +50,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         } else {
             try {
                 const idToken = await firebaseUser.getIdToken();
-                // We only need to verify admin access now. All logged in users are "authorized".
                 const adminResult = await verifyAdminAccess(idToken);
 
                 if (adminResult.error) {
@@ -67,7 +75,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return () => unsubscribe();
   }, []);
   
-  // A user is "authorized" if they are logged in.
   const isAuthorized = !!user;
 
   const value = { user, isAuthorized, isSuperAdmin, loading, error };

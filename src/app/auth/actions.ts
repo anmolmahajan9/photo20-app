@@ -18,7 +18,6 @@ async function verifyToken(idToken: string) {
 const TokenSchema = z.string().min(1, { message: "ID token cannot be empty." });
 
 // Any logged-in user is now considered "authorized" to use the app.
-// The check against the 'allowedEmails' list is removed.
 export async function verifyUserAccess(idToken: string): Promise<{ isAuthorized?: boolean; error?: string }> {
     const validation = TokenSchema.safeParse(idToken);
     if (!validation.success) {
@@ -74,40 +73,32 @@ export async function getAccessAndAdmins(adminIdToken: string) {
     }
 
     try {
-        const accessDoc = await admin.firestore().doc('config/access').get();
-        const adminDoc = await admin.firestore().doc('config/admins').get();
-
-        const allowedEmails = accessDoc.exists ? accessDoc.data()?.allowedEmails || [] : [];
+        const [usersSnapshot, adminDoc] = await Promise.all([
+            admin.firestore().collection('users').orderBy('lastLogin', 'desc').get(),
+            admin.firestore().doc('config/admins').get()
+        ]);
+        
+        const allUsers = usersSnapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                uid: data.uid,
+                email: data.email,
+                displayName: data.displayName,
+                // Convert Firestore Timestamp to a serializable format (ISO string)
+                lastLogin: data.lastLogin?.toDate?.().toISOString() || null,
+            };
+        });
+        
         const admins = adminDoc.exists ? adminDoc.data()?.admins || [] : [];
         
-        return { allowedEmails, admins };
+        return { allUsers, admins };
     } catch (error) {
+        console.error("Error fetching users and admins:", error);
         return { error: "Failed to fetch user and admin lists." };
     }
 }
 
 const EmailSchema = z.string().email({ message: "Invalid email address." });
-
-export async function addAccessEmail(adminIdToken: string, emailToAdd: string) {
-    const adminCheck = await verifyAdminAccess(adminIdToken);
-    if (!adminCheck.isSuperAdmin) {
-        return { error: "Unauthorized" };
-    }
-
-    const emailValidation = EmailSchema.safeParse(emailToAdd);
-    if(!emailValidation.success) {
-        return { error: 'Invalid email format.' };
-    }
-    
-    try {
-        await admin.firestore().doc('config/access').set({
-            allowedEmails: admin.firestore.FieldValue.arrayUnion(emailToAdd)
-        }, { merge: true });
-        return { success: true };
-    } catch (error) {
-        return { error: "Failed to add email." };
-    }
-}
 
 export async function addAdmin(adminIdToken: string, emailToAdd: string) {
     const adminCheck = await verifyAdminAccess(adminIdToken);
@@ -121,11 +112,6 @@ export async function addAdmin(adminIdToken: string, emailToAdd: string) {
     }
 
     try {
-        // Also add to general access if not already there
-        await admin.firestore().doc('config/access').set({
-            allowedEmails: admin.firestore.FieldValue.arrayUnion(emailToAdd)
-        }, { merge: true });
-
         await admin.firestore().doc('config/admins').set({
             admins: admin.firestore.FieldValue.arrayUnion(emailToAdd)
         }, { merge: true });
@@ -134,33 +120,6 @@ export async function addAdmin(adminIdToken: string, emailToAdd: string) {
         return { error: "Failed to add admin." };
     }
 }
-
-
-export async function removeAccessEmail(adminIdToken: string, emailToRemove: string) {
-     const adminCheck = await verifyAdminAccess(adminIdToken);
-    if (!adminCheck.isSuperAdmin) {
-        return { error: "Unauthorized" };
-    }
-
-    const emailValidation = EmailSchema.safeParse(emailToRemove);
-    if(!emailValidation.success) {
-        return { error: 'Invalid email format.' };
-    }
-
-    try {
-        await admin.firestore().doc('config/access').update({
-            allowedEmails: admin.firestore.FieldValue.arrayRemove(emailToRemove)
-        });
-        // Also remove from admin list if they are there
-        await admin.firestore().doc('config/admins').update({
-            admins: admin.firestore.FieldValue.arrayRemove(emailToRemove)
-        });
-        return { success: true };
-    } catch (error) {
-        return { error: "Failed to remove email." };
-    }
-}
-
 
 export async function removeAdmin(adminIdToken: string, emailToRemove: string) {
     const adminCheck = await verifyAdminAccess(adminIdToken);
