@@ -2,13 +2,16 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { signInWithPopup } from 'firebase/auth';
 import { auth, googleProvider } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { useEffect } from 'react';
+import { ArrowLeft } from 'lucide-react';
+
 
 // Google Icon SVG
 const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
@@ -77,6 +80,14 @@ export default function LoginPage() {
                         Sign in with Google
                     </Button>
                 </CardContent>
+                <CardFooter className="justify-center">
+                    <Button variant="link" asChild>
+                        <Link href="/home">
+                            <ArrowLeft className="mr-2 h-4 w-4" />
+                            Back to Home
+                        </Link>
+                    </Button>
+                </CardFooter>
             </Card>
         </div>
     );
