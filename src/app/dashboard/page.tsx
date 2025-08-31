@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { handleGenerateImage } from '../actions';
-import { Upload, Download, Wand2, Camera, RefreshCw, Sparkles, Image as ImageIcon } from 'lucide-react';
+import { Upload, Download, Wand2, Camera, RefreshCw, Sparkles, Image as ImageIcon, X } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
@@ -142,6 +142,13 @@ function DashboardPage() {
     setCameraFacingMode(prev => prev === 'user' ? 'environment' : 'user');
   };
 
+  const handleRemoveImage = () => {
+    setOriginalImage(null);
+    setDisplayImage(null);
+    setGeneratedImage(null);
+    setRefinementPrompt('');
+  };
+
   const generateImage = async (image: string, prompt: string) => {
     setIsLoading(true);
     setGeneratedImage(null);
@@ -246,8 +253,17 @@ function DashboardPage() {
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                   />
                   {displayImage ? (
-                    <div className="relative w-full h-48">
+                    <div className="relative w-full h-48 group">
                       <Image src={displayImage} alt="Uploaded product" fill sizes="50vw" className="object-contain rounded-md"/>
+                      <Button 
+                        variant="destructive" 
+                        size="icon" 
+                        onClick={handleRemoveImage}
+                        className="absolute top-2 right-2 z-10 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                        aria-label="Remove image"
+                      >
+                        <X className="h-4 w-4"/>
+                      </Button>
                     </div>
                   ) : (
                     <div className="flex flex-col items-center justify-center space-y-2 text-muted-foreground">
