@@ -97,8 +97,8 @@ export default function HomePage() {
                 <div className="flex items-center justify-center h-16 w-16 rounded-full bg-primary/10 border-2 border-primary/20 text-primary mb-4">
                   <Star className="h-8 w-8" />
                 </div>
-                <h3 className="text-xl font-bold mb-2">2. Refine &amp; Download</h3>
-                <p className="text-muted-foreground">Select your favorite, refine it with simple text prompts, and download.</p>
+                <h3 className="text-xl font-bold mb-2">2. Download Professional Photo</h3>
+                <p className="text-muted-foreground">Download high-resolution, studio-quality images ready for your store.</p>
               </div>
             </div>
           </div>
@@ -168,6 +168,6 @@ const features = [
     },
     {
         title: "Easy to Use",
-        description: "No special skills needed. If you can click a button, you can use Photo20."
+        description: "If you can click a button, you can use Photo20."
     }
 ];
