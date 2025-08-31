@@ -11,7 +11,7 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
-export const GenerateVariationsInputSchema = z.object({
+const GenerateVariationsInputSchema = z.object({
   photoDataUri: z
     .string()
     .describe(
@@ -20,7 +20,7 @@ export const GenerateVariationsInputSchema = z.object({
 });
 export type GenerateVariationsInput = z.infer<typeof GenerateVariationsInputSchema>;
 
-export const GenerateVariationsOutputSchema = z.object({
+const GenerateVariationsOutputSchema = z.object({
     variations: z.array(z.string()).length(3).describe('An array of exactly three distinct image data URIs, representing variations of the input image.'),
 });
 export type GenerateVariationsOutput = z.infer<typeof GenerateVariationsOutputSchema>;
