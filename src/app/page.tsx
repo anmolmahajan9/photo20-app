@@ -78,9 +78,17 @@ export default function Home() {
       setGeneratedImage(result.generatedPhotoDataUri || null);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
+      
+      let toastDescription = 'An unknown error occurred.';
+      if (errorMessage.includes('429')) {
+        toastDescription = "You've exceeded the API quota. Please try again later or check your API usage.";
+      } else if (errorMessage) {
+        toastDescription = errorMessage;
+      }
+
       toast({
         title: 'Generation Failed',
-        description: errorMessage,
+        description: toastDescription,
         variant: 'destructive',
       });
     } finally {
