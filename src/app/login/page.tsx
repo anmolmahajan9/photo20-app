@@ -60,7 +60,7 @@ export default function LoginPage() {
         <div className="flex items-center justify-center min-h-screen bg-background">
             <Card className="w-full max-w-md">
                 <CardHeader className="text-center">
-                    <CardTitle className="text-3xl font-headline">Welcome to PicPerfect</CardTitle>
+                    <CardTitle className="text-3xl font-headline">Welcome to Photo20</CardTitle>
                     <CardDescription>Sign in to start creating amazing product photos.</CardDescription>
                 </CardHeader>
                 <CardContent>

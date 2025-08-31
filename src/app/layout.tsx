@@ -4,7 +4,7 @@ import { AuthProvider } from '@/context/AuthContext';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'PicPerfect Products',
+  title: 'Photo20',
   description: 'AI-powered product photography, simplified.',
 };
 

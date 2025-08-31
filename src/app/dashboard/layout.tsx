@@ -36,7 +36,7 @@ export default function DashboardLayout({
       <header className="py-4 px-4 md:px-8 border-b border-border">
         <div className="container mx-auto flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-headline font-bold text-primary">PicPerfect Products</h1>
+            <h1 className="text-2xl font-headline font-bold text-primary">Photo20</h1>
             <p className="text-muted-foreground text-sm mt-1 hidden md:block">Welcome, {user?.displayName || user?.email}</p>
           </div>
           <div className="flex items-center gap-2">

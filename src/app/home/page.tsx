@@ -19,7 +19,7 @@ export default function HomePage() {
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center">
               <Link href="/home">
-                <h1 className="text-2xl font-bold font-headline text-primary">PicPerfect</h1>
+                <h1 className="text-2xl font-bold font-headline text-primary">Photo20</h1>
               </Link>
             </div>
             <div className="flex items-center space-x-4">
@@ -51,7 +51,7 @@ export default function HomePage() {
             <div className="mt-8 flex justify-center gap-4">
               <Button asChild size="lg" className="text-lg py-7 px-8">
                 <Link href={user ? '/dashboard' : '/login'}>
-                  Try PicPerfect Now <Wand2 className="ml-2" />
+                  Try Photo20 Now <Wand2 className="ml-2" />
                 </Link>
               </Button>
             </div>
@@ -153,7 +153,7 @@ export default function HomePage() {
       {/* Footer */}
       <footer className="bg-card border-t">
         <div className="container mx-auto px-4 py-6 text-center text-muted-foreground">
-          <p>&copy; {new Date().getFullYear()} PicPerfect. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} Photo20. All rights reserved.</p>
         </div>
       </footer>
     </div>
@@ -175,7 +175,6 @@ const features = [
     },
     {
         title: "Easy to Use",
-        description: "No special skills needed. If you can click a button, you can use PicPerfect."
+        description: "No special skills needed. If you can click a button, you can use Photo20."
     }
 ];
-
