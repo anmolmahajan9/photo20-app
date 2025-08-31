@@ -196,8 +196,8 @@ export default function Home() {
         </div>
       </header>
       <main className="container mx-auto p-4 md:p-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-          <Card className="shadow-lg sticky top-8">
+        <div className="grid grid-cols-1 gap-8 items-start max-w-2xl mx-auto">
+          <Card className="shadow-lg w-full">
             <CardHeader>
               <CardTitle className="font-headline text-2xl flex items-center gap-2">
                 <Wand2 className="text-accent" />
@@ -311,42 +311,37 @@ export default function Home() {
             </CardFooter>
           </Card>
 
-          <Card className="shadow-lg">
-            <CardHeader>
-              <CardTitle className="font-headline text-2xl">Generated Image</CardTitle>
-              <CardDescription>Your AI-powered product photo will appear here.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="relative w-full aspect-square bg-muted/20 rounded-lg flex items-center justify-center border">
-                {isLoading ? (
-                  <div className="flex flex-col items-center gap-4 text-muted-foreground p-8 text-center">
-                    <Wand2 className="w-12 h-12 animate-pulse text-accent"/>
-                    <p className="text-lg font-medium">AI is crafting your image...<br/>This can take a moment.</p>
-                    <Skeleton className="absolute inset-0 w-full h-full" />
-                  </div>
-                ) : generatedImage ? (
-                  <Image src={generatedImage} alt="Generated product" fill sizes="50vw" className="object-contain rounded-md" />
-                ) : (
-                  <div className="text-center text-muted-foreground space-y-2 p-8">
-                    <ImageIcon className="w-16 h-16 mx-auto" />
-                    <p>Your image will be displayed here once generated.</p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-            {generatedImage && !isLoading && (
-              <CardFooter>
-                <Button onClick={downloadImage} className="w-full" variant="secondary">
-                  <Download className="mr-2" />
-                  Download Image
-                </Button>
-              </CardFooter>
-            )}
-          </Card>
+          {(isLoading || generatedImage) && (
+            <Card className="shadow-lg w-full">
+              <CardHeader>
+                <CardTitle className="font-headline text-2xl">Generated Image</CardTitle>
+                <CardDescription>Your AI-powered product photo will appear here.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="relative w-full aspect-square bg-muted/20 rounded-lg flex items-center justify-center border">
+                  {isLoading ? (
+                    <div className="flex flex-col items-center gap-4 text-muted-foreground p-8 text-center">
+                      <Wand2 className="w-12 h-12 animate-pulse text-accent"/>
+                      <p className="text-lg font-medium">AI is crafting your image...<br/>This can take a moment.</p>
+                      <Skeleton className="absolute inset-0 w-full h-full" />
+                    </div>
+                  ) : generatedImage ? (
+                    <Image src={generatedImage} alt="Generated product" fill sizes="50vw" className="object-contain rounded-md" />
+                  ) : null}
+                </div>
+              </CardContent>
+              {generatedImage && !isLoading && (
+                <CardFooter>
+                  <Button onClick={downloadImage} className="w-full" variant="secondary">
+                    <Download className="mr-2" />
+                    Download Image
+                  </Button>
+                </CardFooter>
+              )}
+            </Card>
+          )}
         </div>
       </main>
     </div>
   );
 }
-
-    
