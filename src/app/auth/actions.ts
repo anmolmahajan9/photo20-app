@@ -17,6 +17,8 @@ async function verifyToken(idToken: string) {
 
 const TokenSchema = z.string().min(1, { message: "ID token cannot be empty." });
 
+// Any logged-in user is now considered "authorized" to use the app.
+// The check against the 'allowedEmails' list is removed.
 export async function verifyUserAccess(idToken: string): Promise<{ isAuthorized?: boolean; error?: string }> {
     const validation = TokenSchema.safeParse(idToken);
     if (!validation.success) {
@@ -25,30 +27,11 @@ export async function verifyUserAccess(idToken: string): Promise<{ isAuthorized?
     
     const decoded = await verifyToken(idToken);
     if (!decoded || !decoded.email) {
-        return { error: 'Invalid or expired session. Please sign in again.' };
+        return { isAuthorized: false, error: 'Invalid or expired session. Please sign in again.' };
     }
 
-    try {
-        const accessDoc = await admin.firestore().doc('config/access').get();
-        if (accessDoc.exists) {
-            const allowedEmails = accessDoc.data()?.allowedEmails || [];
-            if (allowedEmails.includes(decoded.email) || decoded.email === PERMANENT_SUPER_ADMIN) {
-                return { isAuthorized: true };
-            }
-        }
-        // Also check admins, as they should have user access too
-        const adminDoc = await admin.firestore().doc('config/admins').get();
-        if (adminDoc.exists) {
-            const adminEmails = adminDoc.data()?.admins || [];
-            if (adminEmails.includes(decoded.email)) {
-                return { isAuthorized: true };
-            }
-        }
-        return { isAuthorized: false };
-    } catch (error: any) {
-        console.error("Error checking user access in Firestore:", error);
-        return { error: 'Could not verify user access.' };
-    }
+    // If a user has a valid token, they are authorized.
+    return { isAuthorized: true };
 }
 
 export async function verifyAdminAccess(idToken: string): Promise<{ isSuperAdmin?: boolean; error?: string }> {

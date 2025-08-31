@@ -4,12 +4,14 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
-import { verifyUserAccess, verifyAdminAccess } from '@/app/auth/actions';
+import { verifyAdminAccess } from '@/app/auth/actions';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface AuthContextType {
   user: User | null;
-  isAuthorized: boolean | null;
+  // isAuthorized is now equivalent to being logged in.
+  // The property is kept for minimal disruption to other components, but could be removed.
+  isAuthorized: boolean | null; 
   isSuperAdmin: boolean | null;
   loading: boolean;
   error: string | null;
@@ -19,7 +21,6 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
   const [isSuperAdmin, setIsSuperAdmin] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -32,37 +33,32 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (firebaseUser) {
         setUser(firebaseUser);
         const cachedAuth = sessionStorage.getItem(`auth_${firebaseUser.uid}`);
+        
         if (cachedAuth) {
-            const { authorized, superAdmin } = JSON.parse(cachedAuth);
-            setIsAuthorized(authorized);
+            const { superAdmin } = JSON.parse(cachedAuth);
             setIsSuperAdmin(superAdmin);
             setLoading(false);
         } else {
             try {
                 const idToken = await firebaseUser.getIdToken();
-                const [authResult, adminResult] = await Promise.all([
-                    verifyUserAccess(idToken),
-                    verifyAdminAccess(idToken),
-                ]);
+                // We only need to verify admin access now. All logged in users are "authorized".
+                const adminResult = await verifyAdminAccess(idToken);
 
-                if (authResult.error || adminResult.error) {
-                    setError(authResult.error || adminResult.error || 'Verification failed');
-                    setIsAuthorized(false);
+                if (adminResult.error) {
+                    setError(adminResult.error);
                     setIsSuperAdmin(false);
                 } else {
-                    setIsAuthorized(authResult.isAuthorized ?? false);
-                    setIsSuperAdmin(adminResult.isSuperAdmin ?? false);
-                    sessionStorage.setItem(`auth_${firebaseUser.uid}`, JSON.stringify({ authorized: authResult.isAuthorized, superAdmin: adminResult.isSuperAdmin }));
+                    const superAdmin = adminResult.isSuperAdmin ?? false;
+                    setIsSuperAdmin(superAdmin);
+                    sessionStorage.setItem(`auth_${firebaseUser.uid}`, JSON.stringify({ superAdmin }));
                 }
             } catch (e: any) {
                 setError(e.message);
-                setIsAuthorized(false);
                 setIsSuperAdmin(false);
             }
         }
       } else {
         setUser(null);
-        setIsAuthorized(false);
         setIsSuperAdmin(false);
       }
       setLoading(false);
@@ -70,6 +66,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     return () => unsubscribe();
   }, []);
+  
+  // A user is "authorized" if they are logged in.
+  const isAuthorized = !!user;
 
   const value = { user, isAuthorized, isSuperAdmin, loading, error };
 

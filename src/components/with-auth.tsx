@@ -10,7 +10,7 @@ const withAuth = <P extends object>(
   options: { adminOnly?: boolean } = {}
 ) => {
   const AuthComponent = (props: P) => {
-    const { user, isAuthorized, isSuperAdmin, loading } = useAuth();
+    const { user, isSuperAdmin, loading } = useAuth();
     const router = useRouter();
 
     useEffect(() => {
@@ -23,20 +23,15 @@ const withAuth = <P extends object>(
         return;
       }
       
-      if (!isAuthorized) {
-        router.replace('/unauthorized');
-        return;
-      }
-
       if (options.adminOnly && !isSuperAdmin) {
-        router.replace('/dashboard');
+        router.replace('/dashboard'); // Non-admins trying to access admin page are sent to dashboard
         return;
       }
 
-    }, [user, isAuthorized, isSuperAdmin, loading, router, options.adminOnly]);
+    }, [user, isSuperAdmin, loading, router, options.adminOnly]);
     
     // Render the component if checks pass, otherwise return null to avoid flicker
-    if (loading || !user || !isAuthorized || (options.adminOnly && !isSuperAdmin)) {
+    if (loading || !user || (options.adminOnly && !isSuperAdmin)) {
       return null;
     }
 
