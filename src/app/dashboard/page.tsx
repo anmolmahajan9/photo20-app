@@ -37,12 +37,12 @@ function DashboardPage() {
  
   useEffect(() => {
     // Whenever generatedImages changes, select the first one as active by default
-    if (generatedImages.length > 0) {
+    if (generatedImages.length > 0 && !generatedImages.includes(activeImage || '')) {
       setActiveImage(generatedImages[0]);
-    } else {
+    } else if (generatedImages.length === 0) {
       setActiveImage(null);
     }
-  }, [generatedImages]);
+  }, [generatedImages, activeImage]);
 
 
   useEffect(() => {
@@ -186,7 +186,7 @@ function DashboardPage() {
       }
       if (result.generatedPhotoDataUri) {
           // Replace the active image with the new refined one
-          const newImages = generatedImages.map(img => img === activeImage ? result.generatedPhotoDataUri : img);
+          const newImages = generatedImages.map(img => img === activeImage ? result.generatedPhotoDataUri! : img);
           setGeneratedImages(newImages);
           setActiveImage(result.generatedPhotoDataUri); // Keep the new one active
       } else {
@@ -216,8 +216,7 @@ function DashboardPage() {
     try {
       const response = await fetch(image);
       const blob = await response.blob();
-      const clipboardItem = new ClipboardItem({ [blob.type]: blob });
-      await navigator.clipboard.write([clipboardItem]);
+      await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
       toast({
         title: 'Image Copied',
         description: 'The generated image has been copied to your clipboard.',
@@ -351,14 +350,14 @@ function DashboardPage() {
                       key={index}
                       onClick={() => setActiveImage(image)}
                       className={cn(
-                        "relative w-full aspect-square rounded-md overflow-hidden border-2 transition-all cursor-pointer",
+                        "relative w-full aspect-square rounded-md overflow-hidden border-2 transition-all cursor-pointer group",
                         activeImage === image ? "border-primary shadow-lg" : "border-transparent hover:border-primary/50"
                       )}
                     >
                        <Image src={image} alt={`Generated product ${index + 1}`} fill sizes="50vw" className="object-contain" />
                        <div className="absolute bottom-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                         <Button size="icon" variant="secondary" onClick={(e) => { e.stopPropagation(); copyImage(image); }}><Copy /></Button>
-                         <Button size="icon" variant="secondary" onClick={(e) => { e.stopPropagation(); downloadImage(image); }}><Download /></Button>
+                         <Button size="icon" variant="secondary" onClick={(e) => { e.stopPropagation(); copyImage(image); }}><Copy className="h-4 w-4" /></Button>
+                         <Button size="icon" variant="secondary" onClick={(e) => { e.stopPropagation(); downloadImage(image); }}><Download className="h-4 w-4" /></Button>
                        </div>
                     </div>
                   ))}
@@ -407,5 +406,7 @@ function DashboardPage() {
 
 export default withAuth(DashboardPage);
 
+
+    
 
     
