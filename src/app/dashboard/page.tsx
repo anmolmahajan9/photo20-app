@@ -132,12 +132,19 @@ function DashboardPage() {
     setCameraFacingMode(prev => prev === 'user' ? 'environment' : 'user');
   };
 
-  const handleRemoveImage = () => {
+  const handleRemoveImage = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    e.preventDefault();
     setOriginalImage(null);
     setDisplayImage(null);
     setGeneratedImages([]);
     setActiveImage(null);
     setRefinementPrompt('');
+    // Also reset the file input so the same file can be re-uploaded
+    const input = document.getElementById('image-upload') as HTMLInputElement;
+    if (input) {
+      input.value = '';
+    }
   };
 
   const handleInitialGeneration = async () => {
@@ -424,10 +431,3 @@ function DashboardPage() {
 }
 
 export default withAuth(DashboardPage);
-
-
-    
-
-    
-
-    

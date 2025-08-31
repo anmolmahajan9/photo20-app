@@ -67,13 +67,13 @@ export default function HomePage() {
                     <div className="text-center">
                         <h3 className="text-2xl font-semibold mb-4 text-muted-foreground font-headline">Before</h3>
                         <div className="relative aspect-square w-full max-w-md mx-auto rounded-xl shadow-lg overflow-hidden border">
-                            <Image src="https://picsum.photos/600/600?grayscale" alt="Before" layout="fill" className="object-cover" data-ai-hint="product photo" />
+                            <Image src="https://picsum.photos/id/1062/600/600" alt="Before - a camera on a plain background" width={600} height={600} className="object-cover" data-ai-hint="product camera" />
                         </div>
                     </div>
                     <div className="text-center">
                         <h3 className="text-2xl font-semibold mb-4 text-primary font-headline">After</h3>
                          <div className="relative aspect-square w-full max-w-md mx-auto rounded-xl shadow-2xl overflow-hidden border-2 border-primary">
-                            <Image src="https://picsum.photos/600/600" alt="After" layout="fill" className="object-cover" data-ai-hint="professional product" />
+                            <Image src="https://picsum.photos/id/250/600/600" alt="After - a professionally shot camera" width={600} height={600} className="object-cover" data-ai-hint="professional camera" />
                         </div>
                     </div>
                 </div>
@@ -97,15 +97,15 @@ export default function HomePage() {
                 <div className="flex items-center justify-center h-16 w-16 rounded-full bg-primary/10 border-2 border-primary/20 text-primary mb-4">
                   <Wand2 className="h-8 w-8" />
                 </div>
-                <h3 className="text-xl font-bold mb-2">2. Choose a Style</h3>
-                <p className="text-muted-foreground">Select from a range of professional themes like 'Studio' or 'Outdoor'.</p>
+                <h3 className="text-xl font-bold mb-2">2. Generate Ideas</h3>
+                <p className="text-muted-foreground">Our AI generates creative photoshoot concepts tailored to your product.</p>
               </div>
               <div className="flex flex-col items-center">
                 <div className="flex items-center justify-center h-16 w-16 rounded-full bg-primary/10 border-2 border-primary/20 text-primary mb-4">
                   <Star className="h-8 w-8" />
                 </div>
-                <h3 className="text-xl font-bold mb-2">3. Generate</h3>
-                <p className="text-muted-foreground">Our AI generates dozens of high-quality, unique product shots for you in moments.</p>
+                <h3 className="text-xl font-bold mb-2">3. Refine &amp; Download</h3>
+                <p className="text-muted-foreground">Select your favorite, refine it with simple text prompts, and download.</p>
               </div>
             </div>
           </div>
