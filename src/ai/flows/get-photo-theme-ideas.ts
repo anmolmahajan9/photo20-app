@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -21,7 +22,7 @@ const GetPhotoThemeIdeasInputSchema = z.object({
 export type GetPhotoThemeIdeasInput = z.infer<typeof GetPhotoThemeIdeasInputSchema>;
 
 const GetPhotoThemeIdeasOutputSchema = z.object({
-  ideas: z.array(z.string()).length(3).describe('An array of exactly three distinct and detailed photoshoot prompts.'),
+  ideas: z.array(z.string()).length(3).describe('An array of exactly three distinct and detailed photoshoot prompts, ready for an image generation model.'),
 });
 export type GetPhotoThemeIdeasOutput = z.infer<typeof GetPhotoThemeIdeasOutputSchema>;
 
@@ -35,14 +36,13 @@ const prompt = ai.definePrompt({
     name: 'getPhotoThemeIdeasPrompt',
     input: {schema: GetPhotoThemeIdeasInputSchema},
     output: {schema: GetPhotoThemeIdeasOutputSchema},
-    prompt: `You are an expert creative director specializing in product photography.
-    
-Based on the provided product photo, generate three distinct, creative, and detailed photoshoot ideas. Each idea should be a complete prompt that can be used to generate a new image. Describe the lighting, background, props, and overall mood for each concept.
+    prompt: `You are a professional product photographer and creative director. I will provide you with a product photo. Based on the product’s appearance, design, and likely target audience, generate three creative product photography ideas that a seller could use to promote this item.
 
-For example:
-- "A professional studio product shot with clean, soft lighting, a neutral background, and a sharp focus on the product."
-- "The product placed in a natural outdoor setting at golden hour, with beautiful natural light and a slightly blurred background."
-- "A minimalist composition with the product as the single focal point, using a solid, light-colored background and simple geometric shadows."
+For each of the three ideas, provide a concise, single-sentence prompt that can be fed directly into an image generation model. This prompt should encapsulate the scene, lighting, and mood.
+
+For example, if the idea is for a watch on a wooden table, the prompt might be: "A close-up of the product on a rustic wooden surface, with soft, natural light filtering in from a nearby window, creating a warm and inviting atmosphere."
+
+Based on the photo provided, generate three such prompts.
 
 Photo: {{media url=photoDataUri}}`,
 });
