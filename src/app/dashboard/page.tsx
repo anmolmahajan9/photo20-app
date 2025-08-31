@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { handleGenerateImage } from '../actions';
-import { Upload, Download, Wand2, Camera, RefreshCw, Sparkles, Image as ImageIcon, X } from 'lucide-react';
+import { Upload, Download, Wand2, Camera, RefreshCw, Sparkles, Image as ImageIcon, X, Copy } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
@@ -225,6 +225,27 @@ function DashboardPage() {
     document.body.removeChild(link);
   };
 
+  const copyImage = async () => {
+    if (!generatedImage) return;
+    try {
+      const response = await fetch(generatedImage);
+      const blob = await response.blob();
+      const clipboardItem = new ClipboardItem({ [blob.type]: blob });
+      await navigator.clipboard.write([clipboardItem]);
+      toast({
+        title: 'Image Copied',
+        description: 'The generated image has been copied to your clipboard.',
+      });
+    } catch (error) {
+      console.error('Failed to copy image:', error);
+      toast({
+        title: 'Copy Failed',
+        description: 'Could not copy the image to the clipboard. Your browser may not support this feature.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start max-w-6xl mx-auto">
       <Card className="shadow-lg w-full">
@@ -403,7 +424,11 @@ function DashboardPage() {
           )}
         </CardContent>
         {generatedImage && !isLoading && (
-          <CardFooter>
+          <CardFooter className="flex gap-2">
+            <Button onClick={copyImage} className="w-full" variant="secondary">
+              <Copy className="mr-2" />
+              Copy Image
+            </Button>
             <Button onClick={downloadImage} className="w-full" variant="secondary">
               <Download className="mr-2" />
               Download Image
