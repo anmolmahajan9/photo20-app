@@ -10,23 +10,14 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { handleGenerateImageIdeas, handleRefineImage, handleGenerateVariations } from '../actions';
-import { Upload, Download, Wand2, Camera, RefreshCw, Sparkles, Image as ImageIcon, X, Copy, ImagePlus, Crop, Square, RectangleVertical } from 'lucide-react';
+import { Upload, Download, Wand2, Camera, RefreshCw, Sparkles, Image as ImageIcon, X, Copy, ImagePlus } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { useIsMobile } from '@/hooks/use-mobile';
 import withAuth from '@/components/with-auth';
 import { cn } from '@/lib/utils';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
-
-type AspectRatio = 'original' | 'square' | 'story';
-
-const aspectRatios: Record<AspectRatio, { ratio: number; className: string }> = {
-  original: { ratio: 1/1, className: 'aspect-square' }, // default, will be updated
-  square: { ratio: 1 / 1, className: 'aspect-square' },
-  story: { ratio: 9 / 16, className: 'aspect-[9/16]' },
-};
 
 function DashboardPage() {
   const [originalImage, setOriginalImage] = useState<string | null>(null);
@@ -40,7 +31,6 @@ function DashboardPage() {
   const [mode, setMode] = useState<'upload' | 'capture'>('upload');
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const [cameraFacingMode, setCameraFacingMode] = useState<'environment' | 'user'>('environment');
-  const [activeAspectRatio, setActiveAspectRatio] = useState<AspectRatio>('original');
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isMobile = useIsMobile();
@@ -166,7 +156,6 @@ function DashboardPage() {
     setIsLoading(true);
     setGeneratedImages([]);
     setActiveImage(null);
-    setActiveAspectRatio('original');
 
     try {
       const result = await handleGenerateImageIdeas(originalImage);
@@ -208,7 +197,6 @@ function DashboardPage() {
           const newImages = generatedImages.map(img => img === activeImage ? result.generatedPhotoDataUri! : img);
           setGeneratedImages(newImages);
           setActiveImage(result.generatedPhotoDataUri); // Keep the new one active
-          setActiveAspectRatio('original');
       } else {
           throw new Error('Refinement failed to produce an image.');
       }
@@ -229,7 +217,6 @@ function DashboardPage() {
     setIsVarying(true);
     setGeneratedImages([]);
     setActiveImage(null);
-    setActiveAspectRatio('original');
 
     try {
       const result = await handleGenerateVariations(activeImage);
@@ -267,45 +254,11 @@ function DashboardPage() {
       }
   };
 
-  const getCroppedImage = async (imageSrc: string, aspect: AspectRatio): Promise<string> => {
-    if (aspect === 'original') return imageSrc;
-
-    const image = document.createElement('img');
-    image.src = imageSrc;
-    await new Promise((resolve) => { image.onload = resolve; });
-
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return imageSrc;
-
-    const targetAspectRatio = aspectRatios[aspect].ratio;
-    
-    let srcX = 0, srcY = 0, srcWidth = image.width, srcHeight = image.height;
-    const currentAspectRatio = image.width / image.height;
-
-    if (currentAspectRatio > targetAspectRatio) {
-        // Image is wider than target
-        srcWidth = image.height * targetAspectRatio;
-        srcX = (image.width - srcWidth) / 2;
-    } else {
-        // Image is taller than target
-        srcHeight = image.width / targetAspectRatio;
-        srcY = (image.height - srcHeight) / 2;
-    }
-
-    canvas.width = srcWidth;
-    canvas.height = srcHeight;
-    ctx.drawImage(image, srcX, srcY, srcWidth, srcHeight, 0, 0, srcWidth, srcHeight);
-    
-    return canvas.toDataURL('image/png');
-  };
-
   const downloadImage = async (image: string | null) => {
     if (!image) return;
-    const imageToDownload = await getCroppedImage(image, activeAspectRatio);
     const link = document.createElement('a');
-    link.href = imageToDownload;
-    link.download = `photo20-product-${activeAspectRatio}.png`;
+    link.href = image;
+    link.download = `photo20-product.png`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -314,8 +267,7 @@ function DashboardPage() {
   const copyImage = async (image: string | null) => {
     if (!image) return;
     try {
-      const imageToCopy = await getCroppedImage(image, activeAspectRatio);
-      const response = await fetch(imageToCopy);
+      const response = await fetch(image);
       const blob = await response.blob();
       await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
       toast({
@@ -446,7 +398,7 @@ function DashboardPage() {
           <CardDescription>Your AI-powered product photos. Click to select, refine, or generate variations.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="relative w-full bg-muted/20 rounded-lg flex items-center justify-center border p-4">
+          <div className="relative w-full bg-muted/20 rounded-lg flex items-center justify-center border p-4 min-h-[400px]">
             {isLoading || isVarying ? (
               <div className="flex flex-col items-center gap-4 text-muted-foreground p-8 text-center aspect-square w-full">
                 <Wand2 className="w-12 h-12 animate-pulse text-accent"/>
@@ -458,7 +410,7 @@ function DashboardPage() {
                   {generatedImages.map((image, index) => (
                     <div 
                       key={index}
-                      onClick={() => { setActiveImage(image); setActiveAspectRatio('original'); }}
+                      onClick={() => setActiveImage(image)}
                       className={cn(
                         "relative w-full aspect-square rounded-md overflow-hidden border-2 transition-all cursor-pointer group",
                         activeImage === image ? "border-primary shadow-lg" : "border-transparent hover:border-primary/50"
@@ -478,31 +430,9 @@ function DashboardPage() {
 
           {activeImage && !isLoading && !isVarying && (
             <>
-              <div className="space-y-3 pt-4 border-t">
-                  <Label className="text-lg font-semibold font-headline flex items-center gap-2">
-                      <Crop className="text-accent" />
-                      Aspect Ratio
-                  </Label>
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <ToggleGroup type="single" value={activeAspectRatio} onValueChange={(value: AspectRatio) => {if(value) setActiveAspectRatio(value)}} className="w-full sm:w-auto">
-                        <ToggleGroupItem value="original" aria-label="Original aspect ratio" className="flex-1">
-                            <ImageIcon className="h-4 w-4 mr-2"/> Original
-                        </ToggleGroupItem>
-                        <ToggleGroupItem value="square" aria-label="Square 1:1" className="flex-1">
-                            <Square className="h-4 w-4 mr-2"/> Square
-                        </ToggleGroupItem>
-                        <ToggleGroupItem value="story" aria-label="Story 9:16" className="flex-1">
-                            <RectangleVertical className="h-4 w-4 mr-2"/> Story
-                        </ToggleGroupItem>
-                    </ToggleGroup>
-                     <div className="flex-1 flex gap-2">
-                      <Button size="sm" variant="outline" onClick={() => copyImage(activeImage)} className="w-full"><Copy className="h-4 w-4 mr-2" />Copy</Button>
-                      <Button size="sm" variant="outline" onClick={() => downloadImage(activeImage)} className="w-full"><Download className="h-4 w-4 mr-2" />Download</Button>
-                    </div>
-                  </div>
-                  <div className={cn("relative w-full rounded-md overflow-hidden bg-muted/20 border transition-all", aspectRatios[activeAspectRatio]?.className)}>
-                      <Image src={activeImage} alt="Active preview" fill className="object-cover" />
-                  </div>
+              <div className="flex-1 flex gap-2">
+                <Button size="sm" variant="outline" onClick={() => copyImage(activeImage)} className="w-full"><Copy className="h-4 w-4 mr-2" />Copy</Button>
+                <Button size="sm" variant="outline" onClick={() => downloadImage(activeImage)} className="w-full"><Download className="h-4 w-4 mr-2" />Download</Button>
               </div>
 
               <div className="space-y-3 pt-4 border-t">
