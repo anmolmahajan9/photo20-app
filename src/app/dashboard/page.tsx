@@ -9,44 +9,21 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { handleGenerateImage } from '../actions';
+import { handleGenerateImageIdeas, handleRefineImage } from '../actions';
 import { Upload, Download, Wand2, Camera, RefreshCw, Sparkles, Image as ImageIcon, X, Copy } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { useIsMobile } from '@/hooks/use-mobile';
 import withAuth from '@/components/with-auth';
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious, type CarouselApi } from '@/components/ui/carousel';
 
-
-const themes = [
-  {
-    name: 'Studio Lighting',
-    prompt: 'A professional studio product shot with clean, soft lighting, a neutral background, and a sharp focus on the product. The image should look like it belongs in a high-end catalog.',
-  },
-  {
-    name: 'Outdoor',
-    prompt: 'The product placed in a natural outdoor setting, with beautiful natural light (e.g., golden hour). The background should be slightly blurred to emphasize the product. The scene should feel authentic and aspirational.',
-  },
-  {
-    name: 'Minimalist',
-    prompt: 'A minimalist composition with the product as the single focal point. Use a solid, light-colored background, simple geometric shadows, and a clean, uncluttered aesthetic.',
-  },
-  {
-    name: 'Vibrant & Colorful',
-    prompt: 'A dynamic and energetic shot. Place the product against a brightly colored background or amidst colorful props. The lighting should be bright and make the colors pop. The mood should be playful and eye-catching.',
-  },
-  {
-    name: 'Luxury & Elegant',
-    prompt: 'Create a luxurious and elegant scene for the product. Use dark, moody lighting, rich textures like silk or marble, and a sense of sophistication and exclusivity.',
-  },
-];
 
 function DashboardPage() {
   const [originalImage, setOriginalImage] = useState<string | null>(null);
   const [displayImage, setDisplayImage] = useState<string | null>(null);
-  const [generatedImage, setGeneratedImage] = useState<string | null>(null);
-  const [selectedTheme, setSelectedTheme] = useState<string>(themes[0].prompt);
-  const [customDescription, setCustomDescription] = useState<string>('');
+  const [generatedImages, setGeneratedImages] = useState<string[]>([]);
+  const [activeCarouselImage, setActiveCarouselImage] = useState<string | null>(null);
   const [refinementPrompt, setRefinementPrompt] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [mode, setMode] = useState<'upload' | 'capture'>('upload');
@@ -56,6 +33,23 @@ function DashboardPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isMobile = useIsMobile();
   const { toast } = useToast();
+  const [carouselApi, setCarouselApi] = useState<CarouselApi>()
+ 
+  useEffect(() => {
+    if (!carouselApi || !generatedImages.length) return
+ 
+    const handleSelect = () => {
+      const selectedIndex = carouselApi.selectedScrollSnap();
+      setActiveCarouselImage(generatedImages[selectedIndex]);
+    }
+
+    carouselApi.on("select", handleSelect)
+    handleSelect(); // Set initial active image
+ 
+    return () => {
+      carouselApi.off("select", handleSelect)
+    }
+  }, [carouselApi, generatedImages])
 
   useEffect(() => {
     const getCameraPermission = async () => {
@@ -112,7 +106,8 @@ function DashboardPage() {
         const result = event.target?.result as string;
         setOriginalImage(result);
         setDisplayImage(result);
-        setGeneratedImage(null);
+        setGeneratedImages([]);
+        setActiveCarouselImage(null);
         setRefinementPrompt('');
       };
       reader.readAsDataURL(file);
@@ -131,7 +126,8 @@ function DashboardPage() {
         const dataUrl = canvas.toDataURL('image/png');
         setOriginalImage(dataUrl);
         setDisplayImage(dataUrl);
-        setGeneratedImage(null);
+        setGeneratedImages([]);
+        setActiveCarouselImage(null);
         setRefinementPrompt('');
         setMode('upload');
       }
@@ -145,80 +141,79 @@ function DashboardPage() {
   const handleRemoveImage = () => {
     setOriginalImage(null);
     setDisplayImage(null);
-    setGeneratedImage(null);
+    setGeneratedImages([]);
+    setActiveCarouselImage(null);
     setRefinementPrompt('');
   };
 
-  const generateImage = async (image: string, prompt: string) => {
+  const handleInitialGeneration = async () => {
+    if (!originalImage) {
+      toast({ title: 'Error', description: 'Please upload or capture an image first.', variant: 'destructive' });
+      return;
+    }
     setIsLoading(true);
-    setGeneratedImage(null);
+    setGeneratedImages([]);
+    setActiveCarouselImage(null);
 
     try {
-      const result = await handleGenerateImage(image, prompt);
+      const result = await handleGenerateImageIdeas(originalImage);
       if (result.error) {
         throw new Error(result.error);
       }
-      setGeneratedImage(result.generatedPhotoDataUri || null);
-      // Set the new generated image as the base for the next refinement
-      setDisplayImage(result.generatedPhotoDataUri || null); 
-      setRefinementPrompt(''); // Clear refinement prompt
+      const validImages = (result.generatedImages || []).filter(img => !!img);
+      if (validImages.length === 0) {
+        throw new Error('The AI failed to generate any images. Please try again.');
+      }
+      setGeneratedImages(validImages);
+      setActiveCarouselImage(validImages[0]);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
-      
-      let toastDescription = 'An unknown error occurred.';
-      if (errorMessage.includes('429')) {
-        toastDescription = "You've exceeded the API quota. Please try again later or check your API usage.";
-      } else if (errorMessage) {
-        toastDescription = errorMessage;
-      }
-
-      toast({
-        title: 'Generation Failed',
-        description: toastDescription,
-        variant: 'destructive',
-      });
+      toast({ title: 'Generation Failed', description: errorMessage, variant: 'destructive' });
     } finally {
       setIsLoading(false);
     }
   };
-
-  const handleInitialGeneration = () => {
-    if (!originalImage) {
-      toast({
-        title: 'Error',
-        description: 'Please upload or capture an image first.',
-        variant: 'destructive',
-      });
+  
+  const handleRefinementGeneration = async () => {
+    if (!activeCarouselImage) {
+      toast({ title: 'Error', description: 'No image selected to refine.', variant: 'destructive' });
       return;
     }
-    const finalPrompt = `${selectedTheme} ${customDescription}`;
-    generateImage(originalImage, finalPrompt);
-  };
-  
-  const handleRefinementGeneration = () => {
-    if (!displayImage) {
-        toast({
-            title: 'Error',
-            description: 'No image to refine. Please generate an image first.',
-            variant: 'destructive'
-        });
-        return;
-    }
     if (!refinementPrompt) {
-        toast({
-            title: 'Error',
-            description: 'Please enter your desired changes.',
-            variant: 'destructive'
-        });
-        return;
+      toast({ title: 'Error', description: 'Please enter your desired changes.', variant: 'destructive' });
+      return;
     }
-    generateImage(displayImage, refinementPrompt);
+    
+    setIsLoading(true);
+    // Refinement only generates one image. We'll show just that one.
+    setGeneratedImages([]); 
+
+    try {
+      const result = await handleRefineImage(activeCarouselImage, refinementPrompt);
+       if (result.error) {
+        throw new Error(result.error);
+      }
+      if (result.generatedPhotoDataUri) {
+          setGeneratedImages([result.generatedPhotoDataUri]);
+          setActiveCarouselImage(result.generatedPhotoDataUri);
+      } else {
+          throw new Error('Refinement failed to produce an image.');
+      }
+    } catch (error) {
+       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
+       toast({ title: 'Refinement Failed', description: errorMessage, variant: 'destructive' });
+       // Restore previous images if refinement fails
+       setGeneratedImages(generatedImages);
+    } finally {
+      setIsLoading(false);
+      setRefinementPrompt('');
+    }
   }
 
   const downloadImage = () => {
-    if (!generatedImage) return;
+    if (!activeCarouselImage) return;
     const link = document.createElement('a');
-    link.href = generatedImage;
+    link.href = activeCarouselImage;
     link.download = 'photo20-product.png';
     document.body.appendChild(link);
     link.click();
@@ -226,9 +221,9 @@ function DashboardPage() {
   };
 
   const copyImage = async () => {
-    if (!generatedImage) return;
+    if (!activeCarouselImage) return;
     try {
-      const response = await fetch(generatedImage);
+      const response = await fetch(activeCarouselImage);
       const blob = await response.blob();
       const clipboardItem = new ClipboardItem({ [blob.type]: blob });
       await navigator.clipboard.write([clipboardItem]);
@@ -254,7 +249,7 @@ function DashboardPage() {
             <Wand2 className="text-accent" />
             Create Your Perfect Shot
           </CardTitle>
-          <CardDescription>Upload an image and choose a style to transform your product photo.</CardDescription>
+          <CardDescription>Upload an image and let our AI create professional product shots for you.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-2">
@@ -324,53 +319,21 @@ function DashboardPage() {
               </TabsContent>
             </Tabs>
           </div>
-          
-          { !generatedImage ? (
-            <>
-              <div className="space-y-3">
-                <Label className="text-lg font-semibold font-headline">2. Choose a Theme</Label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {themes.map((theme) => (
-                    <Button
-                      key={theme.name}
-                      variant={selectedTheme === theme.prompt ? 'default' : 'outline'}
-                      onClick={() => setSelectedTheme(theme.prompt)}
-                      className="h-auto py-2 text-wrap"
-                    >
-                      {theme.name}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="custom-description" className="text-lg font-semibold font-headline">3. Add Your Touch (Optional)</Label>
-                <Textarea
-                  id="custom-description"
-                  placeholder="e.g., 'with a backdrop of cherry blossoms', 'on a wooden table'..."
-                  value={customDescription}
-                  onChange={(e) => setCustomDescription(e.target.value)}
-                  className="min-h-[100px]"
-                />
-              </div>
-            </>
-          ) : null}
-
         </CardContent>
         <CardFooter>
-          <Button onClick={handleInitialGeneration} disabled={isLoading || !originalImage || !!generatedImage} className="w-full text-lg py-6">
-            {isLoading && !generatedImage ? (
+          <Button onClick={handleInitialGeneration} disabled={isLoading || !originalImage} className="w-full text-lg py-6">
+            {isLoading ? (
               <>
                 <svg className="animate-spin -ml-1 mr-3 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                Generating...
+                Generating Ideas...
               </>
             ) : (
               <>
                 <Wand2 className="mr-2" />
-                Generate Image
+                Generate Images
               </>
             )}
           </Button>
@@ -379,32 +342,44 @@ function DashboardPage() {
 
       <Card className="shadow-lg w-full">
         <CardHeader>
-          <CardTitle className="font-headline text-2xl">Generated Image</CardTitle>
-          <CardDescription>Your AI-powered product photo will appear here. You can refine it further below.</CardDescription>
+          <CardTitle className="font-headline text-2xl">Generated Images</CardTitle>
+          <CardDescription>Your AI-powered product photos will appear here. Refine them further below.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="relative w-full aspect-square bg-muted/20 rounded-lg flex items-center justify-center border">
             {isLoading ? (
               <div className="flex flex-col items-center gap-4 text-muted-foreground p-8 text-center">
                 <Wand2 className="w-12 h-12 animate-pulse text-accent"/>
-                <p className="text-lg font-medium">AI is crafting your image...<br/>This can take a moment.</p>
+                <p className="text-lg font-medium">AI is crafting your images...<br/>This can take a moment.</p>
                 <Skeleton className="absolute inset-0 w-full h-full" />
               </div>
-            ) : generatedImage ? (
-              <Image src={generatedImage} alt="Generated product" fill sizes="50vw" className="object-contain rounded-md" />
+            ) : generatedImages.length > 0 ? (
+                <Carousel setApi={setCarouselApi} className="w-full h-full">
+                  <CarouselContent>
+                    {generatedImages.map((image, index) => (
+                      <CarouselItem key={index}>
+                        <div className="relative w-full h-full aspect-square">
+                           <Image src={image} alt={`Generated product ${index + 1}`} fill sizes="50vw" className="object-contain rounded-md" />
+                        </div>
+                      </CarouselItem>
+                    ))}
+                  </CarouselContent>
+                  <CarouselPrevious />
+                  <CarouselNext />
+                </Carousel>
             ) : (
                 <div className="flex flex-col items-center gap-4 text-muted-foreground p-8 text-center">
                     <ImageIcon className="w-12 h-12"/>
-                    <p>Your result will be shown here.</p>
+                    <p>Your results will be shown here.</p>
                 </div>
             )}
           </div>
 
-          {generatedImage && !isLoading && (
+          {activeCarouselImage && !isLoading && (
             <div className="space-y-3 pt-4 border-t">
               <Label htmlFor="refinement-prompt" className="text-lg font-semibold font-headline flex items-center gap-2">
                 <Sparkles className="text-accent" />
-                4. Refine Your Image (Optional)
+                Refine Selected Image
               </Label>
               <Textarea
                 id="refinement-prompt"
@@ -423,7 +398,7 @@ function DashboardPage() {
             </div>
           )}
         </CardContent>
-        {generatedImage && !isLoading && (
+        {activeCarouselImage && !isLoading && (
           <CardFooter className="flex gap-2">
             <Button onClick={copyImage} className="w-full" variant="secondary">
               <Copy className="mr-2" />
