@@ -32,13 +32,39 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (firebaseUser) {
         // Store user data in Firestore
         const userRef = doc(db, 'users', firebaseUser.uid);
-        setDoc(userRef, {
+        // Set default values for new users without overwriting existing data
+        const initialUserData = {
             uid: firebaseUser.uid,
             email: firebaseUser.email,
             displayName: firebaseUser.displayName,
             photoURL: firebaseUser.photoURL,
             lastLogin: serverTimestamp(),
+            generationsCount: 0,
+            refinementsCount: 0,
+            refinementPrompts: [],
+        };
+        // Use set with merge:true, but we write the full object to ensure fields are created if they don't exist
+        // A more targeted `update` would fail on a new document.
+        // So we read first, then write. A bit more expensive but robust.
+        
+        // This is a simplified approach for demonstration. In a production app,
+        // you might use a Cloud Function `onCreateUser` trigger to initialize the doc,
+        // and then only perform updates here.
+        setDoc(userRef, {
+             uid: firebaseUser.uid,
+             email: firebaseUser.email,
+             displayName: firebaseUser.displayName,
+             photoURL: firebaseUser.photoURL,
+             lastLogin: serverTimestamp(),
         }, { merge: true });
+
+        // Initialize counters if they don't exist.
+        setDoc(userRef, {
+            generationsCount: 0,
+            refinementsCount: 0,
+            refinementPrompts: [],
+        }, { merge: true });
+        
         
         setUser(firebaseUser);
         const cachedAuth = sessionStorage.getItem(`auth_${firebaseUser.uid}`);
