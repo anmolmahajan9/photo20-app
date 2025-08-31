@@ -1,9 +1,9 @@
 'use server';
 
 /**
- * @fileOverview This file defines a Genkit flow for generating variations of a given product image.
+ * @fileOverview This file defines a Genkit flow for generating variations of a given product image from different angles.
  *
- * - generateVariations - A function that generates three variations of an image.
+ * - generateVariations - A function that generates three variations of an image from different camera angles.
  * - GenerateVariationsInput - The input type for the generateVariations function.
  * - GenerateVariationsOutput - The return type for the generateVariations function.
  */
@@ -21,7 +21,7 @@ const GenerateVariationsInputSchema = z.object({
 export type GenerateVariationsInput = z.infer<typeof GenerateVariationsInputSchema>;
 
 const GenerateVariationsOutputSchema = z.object({
-    variations: z.array(z.string()).length(3).describe('An array of exactly three distinct image data URIs, representing variations of the input image.'),
+    variations: z.array(z.string()).length(3).describe('An array of exactly three distinct image data URIs, representing the product from different camera angles.'),
 });
 export type GenerateVariationsOutput = z.infer<typeof GenerateVariationsOutputSchema>;
 
@@ -34,7 +34,7 @@ export async function generateVariations(input: GenerateVariationsInput): Promis
 const prompt = ai.definePrompt({
     name: 'generateVariationsPrompt',
     input: {schema: GenerateVariationsInputSchema},
-    prompt: `You are an expert product photographer. The user will provide a product photo. Generate three subtle variations of this photo. The variations should maintain the same overall theme, style, and composition, but introduce minor changes in lighting, angle, or prop placement to offer slightly different perspectives. The product itself must remain the central focus and be unchanged.
+    prompt: `You are an expert product photographer. The user will provide a product photo. Generate three new images of the product from different camera angles (e.g., a top-down view, a side view, a 45-degree angle view). The product itself must remain the central focus and be unchanged. The background, lighting, and overall style should be consistent with the original photo.
 
 Photo: {{media url=photoDataUri}}`,
 });
@@ -48,14 +48,20 @@ const generateVariationsFlow = ai.defineFlow(
     },
     async (input) => {
 
-        const variationPromises = Array(3).fill(null).map(() => 
+        const anglePrompts = [
+            'Generate a new image of the product from a top-down camera angle. Keep the background and style consistent.',
+            'Generate a new image of the product from a straight-on side view. Keep the background and style consistent.',
+            'Generate a new image of the product from a 45-degree angle view. Keep the background and style consistent.'
+        ];
+
+        const variationPromises = anglePrompts.map((promptText) => 
             ai.generate({
                 model: 'googleai/gemini-2.5-flash-image-preview',
                 prompt: [
                     {
                         media: {url: input.photoDataUri},
                     },
-                    {text: 'Generate a subtle variation of this product photo. Maintain the same overall theme, style, and composition, but introduce a minor change in lighting, camera angle, or prop placement. The product itself must remain unchanged.'},
+                    {text: promptText},
                 ],
                 config: {
                     responseModalities: ['TEXT', 'IMAGE'],

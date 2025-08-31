@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { handleGenerateImageIdeas, handleRefineImage, handleGenerateVariations } from '../actions';
-import { Upload, Download, Wand2, Camera, RefreshCw, Sparkles, Image as ImageIcon, X, Copy, ImagePlus } from 'lucide-react';
+import { Upload, Download, Wand2, Camera, RefreshCw, Sparkles, Image as ImageIcon, X, Copy, Orbit } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
@@ -27,7 +27,7 @@ function DashboardPage() {
   const [refinementPrompt, setRefinementPrompt] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isRefining, setIsRefining] = useState<boolean>(false);
-  const [isVarying, setIsVarying] = useState<boolean>(false);
+  const [isGeneratingAngles, setIsGeneratingAngles] = useState<boolean>(false);
   const [mode, setMode] = useState<'upload' | 'capture'>('upload');
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const [cameraFacingMode, setCameraFacingMode] = useState<'environment' | 'user'>('environment');
@@ -209,12 +209,12 @@ function DashboardPage() {
     }
   }
 
-  const handleVariationGeneration = async () => {
+  const handleAngleGeneration = async () => {
     if (!activeImage) {
-      toast({ title: 'Error', description: 'No image selected to generate variations from.', variant: 'destructive' });
+      toast({ title: 'Error', description: 'No image selected to generate new angles from.', variant: 'destructive' });
       return;
     }
-    setIsVarying(true);
+    setIsGeneratingAngles(true);
     setGeneratedImages([]);
     setActiveImage(null);
 
@@ -225,14 +225,14 @@ function DashboardPage() {
       }
       const validImages = (result.generatedImages || []).filter(img => !!img);
       if (validImages.length === 0) {
-        throw new Error('The AI failed to generate any variations. Please try again.');
+        throw new Error('The AI failed to generate any new angles. Please try again.');
       }
       setGeneratedImages(validImages);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
-      toast({ title: 'Variation Failed', description: errorMessage, variant: 'destructive' });
+      toast({ title: 'Angle Generation Failed', description: errorMessage, variant: 'destructive' });
     } finally {
-      setIsVarying(false);
+      setIsGeneratingAngles(false);
     }
   }
 
@@ -367,7 +367,7 @@ function DashboardPage() {
           </div>
         </CardContent>
         <CardFooter>
-          <Button onKeyDown={handleInitialKeyDown} onClick={handleInitialGeneration} disabled={isLoading || isVarying || !originalImage} className="w-full text-lg py-6">
+          <Button onKeyDown={handleInitialKeyDown} onClick={handleInitialGeneration} disabled={isLoading || isGeneratingAngles || !originalImage} className="w-full text-lg py-6">
             {isLoading ? (
               <>
                 <svg className="animate-spin -ml-1 mr-3 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -376,13 +376,13 @@ function DashboardPage() {
                 </svg>
                 Generating Ideas...
               </>
-            ) : isVarying ? (
+            ) : isGeneratingAngles ? (
               <>
                 <svg className="animate-spin -ml-1 mr-3 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                Generating Variations...
+                Generating Angles...
               </>
             ) : (
               <>
@@ -397,11 +397,11 @@ function DashboardPage() {
       <Card className="shadow-lg w-full">
         <CardHeader>
           <CardTitle className="font-headline text-2xl">Generated Images</CardTitle>
-          <CardDescription>Your AI-powered product photos. Click to select, refine, or generate variations.</CardDescription>
+          <CardDescription>Your AI-powered product photos. Click to select, refine, or generate new angles.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="relative w-full bg-muted/20 rounded-lg flex items-center justify-center border p-4 min-h-[400px]">
-            {isLoading || isVarying ? (
+            {isLoading || isGeneratingAngles ? (
               <div className="flex flex-col items-center gap-4 text-muted-foreground p-8 text-center aspect-square w-full">
                 <Wand2 className="w-12 h-12 animate-pulse text-accent"/>
                 <p className="text-lg font-medium">AI is crafting your images...<br/>This can take a moment.</p>
@@ -440,12 +440,12 @@ function DashboardPage() {
             )}
           </div>
 
-          {activeImage && !isLoading && !isVarying && (
+          {activeImage && !isLoading && !isGeneratingAngles && (
             <>
               <div className="space-y-3 pt-4 border-t">
                 <Label htmlFor="refinement-prompt" className="text-lg font-semibold font-headline flex items-center gap-2">
                   <Sparkles className="text-accent" />
-                  Refine or Vary Image
+                  Refine or Get New Angles
                 </Label>
                 <Textarea
                   id="refinement-prompt"
@@ -469,8 +469,8 @@ function DashboardPage() {
                         'Refine with Prompt'
                     )}
                   </Button>
-                  <Button onClick={handleVariationGeneration} disabled={isVarying || isRefining || isLoading} variant="outline" className="w-full">
-                      {isVarying ? (
+                  <Button onClick={handleAngleGeneration} disabled={isGeneratingAngles || isRefining || isLoading} variant="outline" className="w-full">
+                      {isGeneratingAngles ? (
                           <>
                           <svg className="animate-spin -ml-1 mr-3 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -479,7 +479,7 @@ function DashboardPage() {
                            Generating...
                           </>
                       ) : (
-                          <><ImagePlus className="mr-2 h-4 w-4" /> Generate Variations</>
+                          <><Orbit className="mr-2 h-4 w-4" /> Generate Angles</>
                       )}
                   </Button>
                 </div>
