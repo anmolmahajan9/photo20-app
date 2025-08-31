@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useTransition } from 'react';
 import type { ChangeEvent } from 'react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -16,16 +16,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { useIsMobile } from '@/hooks/use-mobile';
 import withAuth from '@/components/with-auth';
-import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious, type CarouselApi } from '@/components/ui/carousel';
+import { cn } from '@/lib/utils';
 
 
 function DashboardPage() {
   const [originalImage, setOriginalImage] = useState<string | null>(null);
   const [displayImage, setDisplayImage] = useState<string | null>(null);
   const [generatedImages, setGeneratedImages] = useState<string[]>([]);
-  const [activeCarouselImage, setActiveCarouselImage] = useState<string | null>(null);
+  const [activeImage, setActiveImage] = useState<string | null>(null);
   const [refinementPrompt, setRefinementPrompt] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isRefining, setIsRefining] = useState<boolean>(false);
   const [mode, setMode] = useState<'upload' | 'capture'>('upload');
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const [cameraFacingMode, setCameraFacingMode] = useState<'environment' | 'user'>('environment');
@@ -33,23 +34,16 @@ function DashboardPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isMobile = useIsMobile();
   const { toast } = useToast();
-  const [carouselApi, setCarouselApi] = useState<CarouselApi>()
  
   useEffect(() => {
-    if (!carouselApi || !generatedImages.length) return
- 
-    const handleSelect = () => {
-      const selectedIndex = carouselApi.selectedScrollSnap();
-      setActiveCarouselImage(generatedImages[selectedIndex]);
+    // Whenever generatedImages changes, select the first one as active by default
+    if (generatedImages.length > 0) {
+      setActiveImage(generatedImages[0]);
+    } else {
+      setActiveImage(null);
     }
+  }, [generatedImages]);
 
-    carouselApi.on("select", handleSelect)
-    handleSelect(); // Set initial active image
- 
-    return () => {
-      carouselApi.off("select", handleSelect)
-    }
-  }, [carouselApi, generatedImages])
 
   useEffect(() => {
     const getCameraPermission = async () => {
@@ -107,7 +101,7 @@ function DashboardPage() {
         setOriginalImage(result);
         setDisplayImage(result);
         setGeneratedImages([]);
-        setActiveCarouselImage(null);
+        setActiveImage(null);
         setRefinementPrompt('');
       };
       reader.readAsDataURL(file);
@@ -127,7 +121,7 @@ function DashboardPage() {
         setOriginalImage(dataUrl);
         setDisplayImage(dataUrl);
         setGeneratedImages([]);
-        setActiveCarouselImage(null);
+        setActiveImage(null);
         setRefinementPrompt('');
         setMode('upload');
       }
@@ -142,7 +136,7 @@ function DashboardPage() {
     setOriginalImage(null);
     setDisplayImage(null);
     setGeneratedImages([]);
-    setActiveCarouselImage(null);
+    setActiveImage(null);
     setRefinementPrompt('');
   };
 
@@ -153,7 +147,7 @@ function DashboardPage() {
     }
     setIsLoading(true);
     setGeneratedImages([]);
-    setActiveCarouselImage(null);
+    setActiveImage(null);
 
     try {
       const result = await handleGenerateImageIdeas(originalImage);
@@ -165,7 +159,6 @@ function DashboardPage() {
         throw new Error('The AI failed to generate any images. Please try again.');
       }
       setGeneratedImages(validImages);
-      setActiveCarouselImage(validImages[0]);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
       toast({ title: 'Generation Failed', description: errorMessage, variant: 'destructive' });
@@ -175,7 +168,7 @@ function DashboardPage() {
   };
   
   const handleRefinementGeneration = async () => {
-    if (!activeCarouselImage) {
+    if (!activeImage) {
       toast({ title: 'Error', description: 'No image selected to refine.', variant: 'destructive' });
       return;
     }
@@ -184,46 +177,44 @@ function DashboardPage() {
       return;
     }
     
-    setIsLoading(true);
-    // Refinement only generates one image. We'll show just that one.
-    setGeneratedImages([]); 
+    setIsRefining(true);
 
     try {
-      const result = await handleRefineImage(activeCarouselImage, refinementPrompt);
+      const result = await handleRefineImage(activeImage, refinementPrompt);
        if (result.error) {
         throw new Error(result.error);
       }
       if (result.generatedPhotoDataUri) {
-          setGeneratedImages([result.generatedPhotoDataUri]);
-          setActiveCarouselImage(result.generatedPhotoDataUri);
+          // Replace the active image with the new refined one
+          const newImages = generatedImages.map(img => img === activeImage ? result.generatedPhotoDataUri : img);
+          setGeneratedImages(newImages);
+          setActiveImage(result.generatedPhotoDataUri); // Keep the new one active
       } else {
           throw new Error('Refinement failed to produce an image.');
       }
     } catch (error) {
        const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
        toast({ title: 'Refinement Failed', description: errorMessage, variant: 'destructive' });
-       // Restore previous images if refinement fails
-       setGeneratedImages(generatedImages);
     } finally {
-      setIsLoading(false);
+      setIsRefining(false);
       setRefinementPrompt('');
     }
   }
 
-  const downloadImage = () => {
-    if (!activeCarouselImage) return;
+  const downloadImage = (image: string | null) => {
+    if (!image) return;
     const link = document.createElement('a');
-    link.href = activeCarouselImage;
+    link.href = image;
     link.download = 'photo20-product.png';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
-  const copyImage = async () => {
-    if (!activeCarouselImage) return;
+  const copyImage = async (image: string | null) => {
+    if (!image) return;
     try {
-      const response = await fetch(activeCarouselImage);
+      const response = await fetch(image);
       const blob = await response.blob();
       const clipboardItem = new ClipboardItem({ [blob.type]: blob });
       await navigator.clipboard.write([clipboardItem]);
@@ -343,39 +334,44 @@ function DashboardPage() {
       <Card className="shadow-lg w-full">
         <CardHeader>
           <CardTitle className="font-headline text-2xl">Generated Images</CardTitle>
-          <CardDescription>Your AI-powered product photos will appear here. Refine them further below.</CardDescription>
+          <CardDescription>Your AI-powered product photos will appear here. Click to select, then refine further below.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="relative w-full aspect-square bg-muted/20 rounded-lg flex items-center justify-center border">
+          <div className="relative w-full bg-muted/20 rounded-lg flex items-center justify-center border p-4">
             {isLoading ? (
-              <div className="flex flex-col items-center gap-4 text-muted-foreground p-8 text-center">
+              <div className="flex flex-col items-center gap-4 text-muted-foreground p-8 text-center aspect-square w-full">
                 <Wand2 className="w-12 h-12 animate-pulse text-accent"/>
                 <p className="text-lg font-medium">AI is crafting your images...<br/>This can take a moment.</p>
                 <Skeleton className="absolute inset-0 w-full h-full" />
               </div>
             ) : generatedImages.length > 0 ? (
-                <Carousel setApi={setCarouselApi} className="w-full h-full">
-                  <CarouselContent>
-                    {generatedImages.map((image, index) => (
-                      <CarouselItem key={index}>
-                        <div className="relative w-full h-full aspect-square">
-                           <Image src={image} alt={`Generated product ${index + 1}`} fill sizes="50vw" className="object-contain rounded-md" />
-                        </div>
-                      </CarouselItem>
-                    ))}
-                  </CarouselContent>
-                  <CarouselPrevious />
-                  <CarouselNext />
-                </Carousel>
+                 <div className="flex flex-col gap-4 w-full">
+                  {generatedImages.map((image, index) => (
+                    <div 
+                      key={index}
+                      onClick={() => setActiveImage(image)}
+                      className={cn(
+                        "relative w-full aspect-square rounded-md overflow-hidden border-2 transition-all cursor-pointer",
+                        activeImage === image ? "border-primary shadow-lg" : "border-transparent hover:border-primary/50"
+                      )}
+                    >
+                       <Image src={image} alt={`Generated product ${index + 1}`} fill sizes="50vw" className="object-contain" />
+                       <div className="absolute bottom-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                         <Button size="icon" variant="secondary" onClick={(e) => { e.stopPropagation(); copyImage(image); }}><Copy /></Button>
+                         <Button size="icon" variant="secondary" onClick={(e) => { e.stopPropagation(); downloadImage(image); }}><Download /></Button>
+                       </div>
+                    </div>
+                  ))}
+                </div>
             ) : (
-                <div className="flex flex-col items-center gap-4 text-muted-foreground p-8 text-center">
+                <div className="flex flex-col items-center gap-4 text-muted-foreground p-8 text-center aspect-square w-full">
                     <ImageIcon className="w-12 h-12"/>
                     <p>Your results will be shown here.</p>
                 </div>
             )}
           </div>
 
-          {activeCarouselImage && !isLoading && (
+          {activeImage && !isLoading && (
             <div className="space-y-3 pt-4 border-t">
               <Label htmlFor="refinement-prompt" className="text-lg font-semibold font-headline flex items-center gap-2">
                 <Sparkles className="text-accent" />
@@ -388,9 +384,15 @@ function DashboardPage() {
                 onChange={(e) => setRefinementPrompt(e.target.value)}
                 className="min-h-[80px]"
               />
-              <Button onClick={handleRefinementGeneration} disabled={isLoading || !refinementPrompt} className="w-full">
-                 {isLoading ? (
-                    'Regenerating...'
+              <Button onClick={handleRefinementGeneration} disabled={isRefining || !refinementPrompt} className="w-full">
+                 {isRefining ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Regenerating...
+                    </>
                  ) : (
                     'Regenerate with Changes'
                  )}
@@ -398,21 +400,12 @@ function DashboardPage() {
             </div>
           )}
         </CardContent>
-        {activeCarouselImage && !isLoading && (
-          <CardFooter className="flex gap-2">
-            <Button onClick={copyImage} className="w-full" variant="secondary">
-              <Copy className="mr-2" />
-              Copy Image
-            </Button>
-            <Button onClick={downloadImage} className="w-full" variant="secondary">
-              <Download className="mr-2" />
-              Download Image
-            </Button>
-          </CardFooter>
-        )}
       </Card>
     </div>
   );
 }
 
 export default withAuth(DashboardPage);
+
+
+    
