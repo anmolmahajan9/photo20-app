@@ -1,12 +1,13 @@
 'use client';
 
-import { useRouter, usePathname } from 'next/navigation';
+import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/AuthContext';
 import { auth } from '@/lib/firebase';
 import { LogOut, User, Shield, Image as ImageIcon } from 'lucide-react';
-import Link from 'next/link';
 import { cn } from '@/lib/utils';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function DashboardLayout({
   children,
@@ -28,9 +29,11 @@ export default function DashboardLayout({
     ...(isSuperAdmin ? [{ href: '/admin', label: 'Admin Panel', icon: Shield }] : []),
   ];
 
+  const currentTab = navLinks.find(link => pathname.startsWith(link.href))?.href ?? '/dashboard';
+
   return (
     <div className="min-h-screen bg-background text-foreground w-full">
-       <header className="py-4 px-4 md:px-8 border-b border-border">
+      <header className="py-4 px-4 md:px-8 border-b border-border">
         <div className="container mx-auto flex justify-between items-center">
           <div>
             <h1 className="text-2xl font-headline font-bold text-primary">PicPerfect Products</h1>
@@ -44,22 +47,17 @@ export default function DashboardLayout({
           </div>
         </div>
       </header>
-       <main className="container mx-auto p-4 md:p-8 flex flex-col md:flex-row gap-8">
-        <aside className="w-full md:w-1/5">
-            <nav className="flex flex-row md:flex-col gap-2">
+       <main className="container mx-auto p-4 md:p-8">
+        <Tabs value={currentTab} onValueChange={(value) => router.push(value)} className="w-full mb-6">
+            <TabsList>
                 {navLinks.map(link => (
-                    <Link href={link.href} key={link.href}>
-                         <Button
-                            variant={pathname === link.href ? 'default' : 'ghost'}
-                            className="w-full justify-start"
-                        >
-                            <link.icon className="mr-2 h-4 w-4" />
-                            {link.label}
-                        </Button>
-                    </Link>
+                    <TabsTrigger key={link.href} value={link.href}>
+                        <link.icon className="mr-2 h-4 w-4" />
+                        {link.label}
+                    </TabsTrigger>
                 ))}
-            </nav>
-        </aside>
+            </TabsList>
+        </Tabs>
         <div className="flex-1">
           {children}
         </div>

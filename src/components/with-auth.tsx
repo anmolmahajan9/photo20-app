@@ -14,20 +14,32 @@ const withAuth = <P extends object>(
     const router = useRouter();
 
     useEffect(() => {
-      if (!loading) {
-        if (!user) {
-          router.replace('/login');
-        } else if (options.adminOnly && !isSuperAdmin) {
-          router.replace('/dashboard'); // or a dedicated unauthorized page
-        } else if (!isAuthorized) {
-            router.replace('/unauthorized');
-        }
+      if (loading) {
+        return; // Wait for loading to complete
       }
-    }, [user, isAuthorized, isSuperAdmin, loading, router, options.adminOnly]);
 
+      if (!user) {
+        router.replace('/login');
+        return;
+      }
+      
+      if (!isAuthorized) {
+        router.replace('/unauthorized');
+        return;
+      }
+
+      if (options.adminOnly && !isSuperAdmin) {
+        router.replace('/dashboard');
+        return;
+      }
+
+    }, [user, isAuthorized, isSuperAdmin, loading, router, options.adminOnly]);
+    
+    // Render the component if checks pass, otherwise return null to avoid flicker
     if (loading || !user || !isAuthorized || (options.adminOnly && !isSuperAdmin)) {
       return null;
     }
+
 
     return <WrappedComponent {...props} />;
   };
