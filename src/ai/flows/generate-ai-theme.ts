@@ -48,6 +48,8 @@ export async function generateAIThemeFromTemplate(input: GenerateAIThemeFromTemp
     return generateAIThemeFromTemplateFlow(input);
 }
 
+const basePrompt = "The user will provide a photo of a product, potentially in its packaging. Your task is to take the product **out of the box** and create a new, professional product photograph of **only the product itself** based on the following theme or description. The product itself must be the central focus and should be accurately represented.";
+
 const templatePrompts: Record<string, string> = {
     'Minimalist': "A sleek, modern shot of the product on a clean, uncluttered surface with soft, diffused lighting, creating a sense of simplicity and focus.",
     'Luxury': "A dramatic close-up of the product on a polished obsidian surface, with a single, powerful spotlight from above, evoking deep shadows and a high-end, luxurious feel.",
@@ -64,13 +66,14 @@ const generateAIThemeFlow = ai.defineFlow(
     outputSchema: GenerateAIThemeOutputSchema,
   },
   async input => {
+    const fullPrompt = `${basePrompt} \n\n${input.description}`;
     const {media} = await ai.generate({
       model: 'googleai/gemini-2.5-flash-image-preview',
       prompt: [
         {
           media: {url: input.photoDataUri},
         },
-        {text: input.description},
+        {text: fullPrompt},
       ],
       config: {
         responseModalities: ['TEXT', 'IMAGE'],
@@ -90,6 +93,7 @@ const generateAIThemeFromTemplateFlow = ai.defineFlow(
     },
     async (input) => {
         const description = templatePrompts[input.template] || `A high-quality product photo of the item, in the style of ${input.template}.`;
+        const fullPrompt = `${basePrompt} \n\n${description}`;
 
         const {media} = await ai.generate({
             model: 'googleai/gemini-2.5-flash-image-preview',
@@ -97,7 +101,7 @@ const generateAIThemeFromTemplateFlow = ai.defineFlow(
                 {
                     media: {url: input.photoDataUri},
                 },
-                {text: description},
+                {text: fullPrompt},
             ],
             config: {
                 responseModalities: ['TEXT', 'IMAGE'],
@@ -107,4 +111,3 @@ const generateAIThemeFromTemplateFlow = ai.defineFlow(
         return {generatedPhotoDataUri: media.url!};
     }
 );
-
