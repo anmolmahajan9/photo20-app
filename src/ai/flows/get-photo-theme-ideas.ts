@@ -44,7 +44,7 @@ const prompt = ai.definePrompt({
     prompt: `You are a professional product photographer and creative director. I will provide you with a product photo. Based on the product’s appearance, design, and likely target audience, generate three creative product photography ideas that a seller could use to promote this item.
 
 For each of the three ideas, provide two things:
-1. A short, user-friendly phrase (3-5 words) that summarizes the theme (e.g., "Warm & Rustic," "Sleek & Modern," "Outdoor Adventure"). This will be shown to the user.
+1. A short, user-friendly phrase (3-5 words) that summarizes the theme (e.g., "Warm & Rustic," "Sleek & Modern," "Outdoor Adventure"). This phrase should give the user a clear idea of the visual style of the generated photo.
 2. A detailed, single-sentence prompt that can be fed directly into an image generation model. This prompt should encapsulate the scene, lighting, and mood (e.g., "A close-up of the product on a rustic wooden surface, with soft, natural light filtering in from a nearby window, creating a warm and inviting atmosphere.").
 
 Based on the photo provided, generate three such ideas, each with a shortPhrase and a detailedPrompt.
