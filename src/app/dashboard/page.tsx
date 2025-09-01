@@ -9,25 +9,35 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { handleGenerateImageIdeas, handleRefineImage, handleGenerateVariations } from '../actions';
-import { Upload, Download, Wand2, Camera, RefreshCw, Sparkles, Image as ImageIcon, X, Copy, Orbit } from 'lucide-react';
+import { handleGetImageIdeas, handleGenerateImageFromIdea, handleRefineImage, handleGenerateVariations } from '../actions';
+import { Upload, Download, Wand2, Camera, RefreshCw, Sparkles, Image as ImageIcon, X, Copy, Orbit, CheckCircle } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { useIsMobile } from '@/hooks/use-mobile';
 import withAuth from '@/components/with-auth';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/context/AuthContext';
 
+
+type GenerationStep = 'initial' | 'ideas' | 'generating' | 'refining' | 'angles' | 'final';
 
 function DashboardPage() {
+  const { user } = useAuth();
   const [originalImage, setOriginalImage] = useState<string | null>(null);
   const [displayImage, setDisplayImage] = useState<string | null>(null);
   const [generatedImages, setGeneratedImages] = useState<string[]>([]);
   const [activeImage, setActiveImage] = useState<string | null>(null);
   const [refinementPrompt, setRefinementPrompt] = useState<string>('');
+  
+  const [generationStep, setGenerationStep] = useState<GenerationStep>('initial');
+  const [creativeIdeas, setCreativeIdeas] = useState<string[]>([]);
+  const [selectedIdea, setSelectedIdea] = useState<string | null>(null);
+
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isRefining, setIsRefining] = useState<boolean>(false);
   const [isGeneratingAngles, setIsGeneratingAngles] = useState<boolean>(false);
+
   const [mode, setMode] = useState<'upload' | 'capture'>('upload');
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const [cameraFacingMode, setCameraFacingMode] = useState<'environment' | 'user'>('environment');
@@ -37,7 +47,6 @@ function DashboardPage() {
   const { toast } = useToast();
  
   useEffect(() => {
-    // Whenever generatedImages changes, select the first one as active by default
     if (generatedImages.length > 0 && !generatedImages.includes(activeImage || '')) {
       setActiveImage(generatedImages[0]);
     } else if (generatedImages.length === 0) {
@@ -93,17 +102,30 @@ function DashboardPage() {
     };
   }, [mode, cameraFacingMode, toast]);
 
+  const resetState = () => {
+    setOriginalImage(null);
+    setDisplayImage(null);
+    setGeneratedImages([]);
+    setActiveImage(null);
+    setRefinementPrompt('');
+    setGenerationStep('initial');
+    setCreativeIdeas([]);
+    setSelectedIdea(null);
+    const input = document.getElementById('image-upload') as HTMLInputElement;
+    if (input) {
+      input.value = '';
+    }
+  };
+
   const handleImageUpload = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onload = (event) => {
         const result = event.target?.result as string;
+        resetState();
         setOriginalImage(result);
         setDisplayImage(result);
-        setGeneratedImages([]);
-        setActiveImage(null);
-        setRefinementPrompt('');
       };
       reader.readAsDataURL(file);
     }
@@ -119,11 +141,9 @@ function DashboardPage() {
       if (context) {
         context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
         const dataUrl = canvas.toDataURL('image/png');
+        resetState();
         setOriginalImage(dataUrl);
         setDisplayImage(dataUrl);
-        setGeneratedImages([]);
-        setActiveImage(null);
-        setRefinementPrompt('');
         setMode('upload');
       }
     }
@@ -136,47 +156,64 @@ function DashboardPage() {
   const handleRemoveImage = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
     e.preventDefault();
-    setOriginalImage(null);
-    setDisplayImage(null);
-    setGeneratedImages([]);
-    setActiveImage(null);
-    setRefinementPrompt('');
-    // Also reset the file input so the same file can be re-uploaded
-    const input = document.getElementById('image-upload') as HTMLInputElement;
-    if (input) {
-      input.value = '';
-    }
+    resetState();
   };
 
   const handleInitialGeneration = async () => {
-    if (!originalImage) {
-      toast({ title: 'Error', description: 'Please upload or capture an image first.', variant: 'destructive' });
+    if (!originalImage || !user) {
+      toast({ title: 'Error', description: 'Please upload an image and sign in.', variant: 'destructive' });
       return;
     }
     setIsLoading(true);
+    setGenerationStep('generating');
+    setCreativeIdeas([]);
     setGeneratedImages([]);
-    setActiveImage(null);
-
+    
     try {
-      const result = await handleGenerateImageIdeas(originalImage);
-      if (result.error) {
-        throw new Error(result.error);
-      }
-      const validImages = (result.generatedImages || []).filter(img => !!img);
-      if (validImages.length === 0) {
-        throw new Error('The AI failed to generate any images. Please try again.');
-      }
-      setGeneratedImages(validImages);
+      const idToken = await user.getIdToken();
+      const result = await handleGetImageIdeas(idToken, originalImage);
+      if (result.error) throw new Error(result.error);
+      
+      setCreativeIdeas(result.ideas || []);
+      setGenerationStep('ideas');
+
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
-      toast({ title: 'Generation Failed', description: errorMessage, variant: 'destructive' });
+      toast({ title: 'Idea Generation Failed', description: errorMessage, variant: 'destructive' });
+      setGenerationStep('initial');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleIdeaSelection = async (idea: string) => {
+    if (!originalImage || !user) return;
+    setSelectedIdea(idea);
+    setGenerationStep('generating');
+    setIsLoading(true);
+
+    try {
+      const idToken = await user.getIdToken();
+      const result = await handleGenerateImageFromIdea(idToken, originalImage, idea);
+      if (result.error) throw new Error(result.error);
+      
+      if (result.generatedPhotoDataUri) {
+        setGeneratedImages([result.generatedPhotoDataUri]);
+        setGenerationStep('final');
+      } else {
+        throw new Error('The AI failed to generate an image.');
+      }
+    } catch (error) {
+       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
+       toast({ title: 'Image Generation Failed', description: errorMessage, variant: 'destructive' });
+       setGenerationStep('ideas'); // Go back to ideas step on failure
     } finally {
       setIsLoading(false);
     }
   };
   
   const handleRefinementGeneration = async () => {
-    if (!activeImage) {
+    if (!activeImage || !user) {
       toast({ title: 'Error', description: 'No image selected to refine.', variant: 'destructive' });
       return;
     }
@@ -186,23 +223,26 @@ function DashboardPage() {
     }
     
     setIsRefining(true);
+    setGenerationStep('refining');
 
     try {
-      const result = await handleRefineImage(activeImage, refinementPrompt);
+      const idToken = await user.getIdToken();
+      const result = await handleRefineImage(idToken, activeImage, refinementPrompt);
        if (result.error) {
         throw new Error(result.error);
       }
       if (result.generatedPhotoDataUri) {
-          // Replace the active image with the new refined one
           const newImages = generatedImages.map(img => img === activeImage ? result.generatedPhotoDataUri! : img);
           setGeneratedImages(newImages);
-          setActiveImage(result.generatedPhotoDataUri); // Keep the new one active
+          setActiveImage(result.generatedPhotoDataUri);
+          setGenerationStep('final');
       } else {
           throw new Error('Refinement failed to produce an image.');
       }
     } catch (error) {
        const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
        toast({ title: 'Refinement Failed', description: errorMessage, variant: 'destructive' });
+       setGenerationStep('final');
     } finally {
       setIsRefining(false);
       setRefinementPrompt('');
@@ -210,16 +250,18 @@ function DashboardPage() {
   }
 
   const handleAngleGeneration = async () => {
-    if (!activeImage) {
+    if (!activeImage || !user) {
       toast({ title: 'Error', description: 'No image selected to generate new angles from.', variant: 'destructive' });
       return;
     }
     setIsGeneratingAngles(true);
+    setGenerationStep('angles');
     setGeneratedImages([]);
     setActiveImage(null);
 
     try {
-      const result = await handleGenerateVariations(activeImage);
+      const idToken = await user.getIdToken();
+      const result = await handleGenerateVariations(idToken, activeImage);
       if (result.error) {
         throw new Error(result.error);
       }
@@ -228,9 +270,12 @@ function DashboardPage() {
         throw new Error('The AI failed to generate any new angles. Please try again.');
       }
       setGeneratedImages(validImages);
+      setGenerationStep('final');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
       toast({ title: 'Angle Generation Failed', description: errorMessage, variant: 'destructive' });
+      setGenerationStep('final'); // Revert to final to show original image if angles fail
+      setActiveImage(activeImage); 
     } finally {
       setIsGeneratingAngles(false);
     }
@@ -243,15 +288,6 @@ function DashboardPage() {
             handleRefinementGeneration();
         }
     }
-  };
-
-  const handleInitialKeyDown = (e: KeyboardEvent<HTMLButtonElement>) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-          e.preventDefault();
-          if (!isLoading && originalImage) {
-              handleInitialGeneration();
-          }
-      }
   };
 
   const downloadImage = async (e: React.MouseEvent<HTMLButtonElement>, image: string | null) => {
@@ -286,6 +322,8 @@ function DashboardPage() {
     }
   };
 
+  const isLoadingState = ['generating', 'refining', 'angles'].includes(generationStep) || isLoading || isRefining || isGeneratingAngles;
+
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start max-w-6xl mx-auto">
@@ -302,8 +340,8 @@ function DashboardPage() {
             <Label htmlFor="image-upload" className="text-lg font-semibold font-headline">1. Provide a Photo</Label>
             <Tabs value={mode} onValueChange={(value) => setMode(value as 'upload' | 'capture')} className="w-full">
               <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="upload"><Upload className="mr-2 h-4 w-4" />Upload</TabsTrigger>
-                <TabsTrigger value="capture"><Camera className="mr-2 h-4 w-4" />Capture</TabsTrigger>
+                <TabsTrigger value="upload" disabled={isLoadingState}><Upload className="mr-2 h-4 w-4" />Upload</TabsTrigger>
+                <TabsTrigger value="capture" disabled={isLoadingState}><Camera className="mr-2 h-4 w-4" />Capture</TabsTrigger>
               </TabsList>
               <TabsContent value="upload">
                 <div className="relative border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-accent transition-colors mt-2">
@@ -313,6 +351,7 @@ function DashboardPage() {
                     accept="image/*"
                     onChange={handleImageUpload}
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    disabled={isLoadingState}
                   />
                   {displayImage ? (
                     <div className="relative w-full h-48 group">
@@ -323,6 +362,7 @@ function DashboardPage() {
                         onClick={handleRemoveImage}
                         className="absolute top-2 right-2 z-10 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
                         aria-label="Remove image"
+                        disabled={isLoadingState}
                       >
                         <X className="h-4 w-4"/>
                       </Button>
@@ -350,12 +390,12 @@ function DashboardPage() {
                       </Alert>
                   )}
                   <div className="flex gap-2">
-                    <Button onClick={capturePhoto} disabled={!hasCameraPermission} className="w-full">
+                    <Button onClick={capturePhoto} disabled={!hasCameraPermission || isLoadingState} className="w-full">
                       <Camera className="mr-2" />
                       Take Photo
                     </Button>
                     {isMobile && (
-                      <Button onClick={switchCamera} disabled={!hasCameraPermission} variant="outline" size="icon">
+                      <Button onClick={switchCamera} disabled={!hasCameraPermission || isLoadingState} variant="outline" size="icon">
                           <RefreshCw className="h-4 w-4" />
                           <span className="sr-only">Switch Camera</span>
                       </Button>
@@ -367,27 +407,19 @@ function DashboardPage() {
           </div>
         </CardContent>
         <CardFooter>
-          <Button onKeyDown={handleInitialKeyDown} onClick={handleInitialGeneration} disabled={isLoading || isGeneratingAngles || !originalImage} className="w-full text-lg py-6">
+          <Button onClick={handleInitialGeneration} disabled={isLoadingState || !originalImage || generationStep !== 'initial'} className="w-full text-lg py-6">
             {isLoading ? (
               <>
                 <svg className="animate-spin -ml-1 mr-3 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                Generating Ideas...
-              </>
-            ) : isGeneratingAngles ? (
-              <>
-                <svg className="animate-spin -ml-1 mr-3 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Generating Angles...
+                Generating...
               </>
             ) : (
               <>
                 <Wand2 className="mr-2" />
-                Generate Images
+                Generate Ideas
               </>
             )}
           </Button>
@@ -396,17 +428,43 @@ function DashboardPage() {
 
       <Card className="shadow-lg w-full">
         <CardHeader>
-          <CardTitle className="font-headline text-2xl">Generated Images</CardTitle>
-          <CardDescription>Your AI-powered product photos. Click to select, refine, or generate new angles.</CardDescription>
+          <CardTitle className="font-headline text-2xl">
+            {generationStep === 'initial' && 'Generated Image'}
+            {generationStep === 'ideas' && '2. Choose an Idea'}
+            {(generationStep === 'generating' || isLoading) && 'Generating Your Image...'}
+            {generationStep === 'refining' && 'Refining Your Image...'}
+            {generationStep === 'angles' && 'Generating New Angles...'}
+            {generationStep === 'final' && 'Your Generated Image'}
+          </CardTitle>
+          <CardDescription>
+            {generationStep === 'initial' && 'Your AI-powered product photo will appear here.'}
+            {generationStep === 'ideas' && 'Select a theme to generate your perfect shot.'}
+            {(generationStep === 'generating' || isLoading) && 'The AI is working its magic. This can take a moment.'}
+            {generationStep === 'refining' && 'Applying your changes to the image.'}
+            {generationStep === 'angles' && 'Creating new perspectives of your product.'}
+            {generationStep === 'final' && 'Your result. You can now refine it, or generate new angles.'}
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="relative w-full bg-muted/20 rounded-lg flex items-center justify-center border p-4 min-h-[400px]">
-            {isLoading || isGeneratingAngles ? (
+            {isLoadingState ? (
               <div className="flex flex-col items-center gap-4 text-muted-foreground p-8 text-center aspect-square w-full">
                 <Wand2 className="w-12 h-12 animate-pulse text-accent"/>
-                <p className="text-lg font-medium">AI is crafting your images...<br/>This can take a moment.</p>
+                <p className="text-lg font-medium">AI is crafting your vision...<br/>Please wait.</p>
                 <Skeleton className="absolute inset-0 w-full h-full" />
               </div>
+            ) : generationStep === 'ideas' ? (
+                <div className="grid grid-cols-1 gap-4 w-full">
+                    {creativeIdeas.map((idea, index) => (
+                        <Card 
+                            key={index}
+                            onClick={() => handleIdeaSelection(idea)}
+                            className="p-4 hover:bg-accent/10 hover:border-accent cursor-pointer transition-all"
+                        >
+                            <p className="font-medium text-center">{idea}</p>
+                        </Card>
+                    ))}
+                </div>
             ) : generatedImages.length > 0 ? (
                  <div className="flex flex-col gap-4 w-full">
                   {generatedImages.map((image, index) => (
@@ -440,7 +498,7 @@ function DashboardPage() {
             )}
           </div>
 
-          {activeImage && !isLoading && !isGeneratingAngles && (
+          {activeImage && generationStep === 'final' && (
             <>
               <div className="space-y-3 pt-4 border-t">
                 <Label htmlFor="refinement-prompt" className="text-lg font-semibold font-headline flex items-center gap-2">
@@ -493,5 +551,3 @@ function DashboardPage() {
 }
 
 export default withAuth(DashboardPage);
-
-    

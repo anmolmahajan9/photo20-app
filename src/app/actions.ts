@@ -1,40 +1,87 @@
+
 'use server';
 
-import { generateAITheme } from '@/ai/flows/generate-ai-theme';
+import { generateAITheme, GenerateAIThemeInput } from '@/ai/flows/generate-ai-theme';
 import { getPhotoThemeIdeas } from '@/ai/flows/get-photo-theme-ideas';
 import { generateVariations } from '@/ai/flows/generate-variations';
 import { z } from 'zod';
-import { auth } from 'firebase-admin';
 import admin from '@/lib/firebaseAdmin';
+import type { User } from 'firebase-admin/auth';
+import { FieldValue } from 'firebase-admin/firestore';
 
-const generateActionSchema = z.object({
-  originalImage: z.string().startsWith('data:image', { message: 'Invalid image format. Please provide a data URI.' }),
-});
 
-async function getCurrentUser() {
-    // This is a placeholder for getting the current user's ID.
-    // In a real app, you'd get this from the session or a verified token.
-    // For this example, we'll assume a way to get the user's auth state server-side.
-    // NOTE: This part of the logic requires a robust auth implementation to get the UID on the server.
-    // Since we don't have the full request context here, we can't directly get the user.
-    // A real implementation would use NextAuth.js, or pass the ID token from the client.
-    // For now, this will fail silently if no user is available.
+async function getAuthenticatedUser(idToken: string): Promise<User | null> {
+    if (!idToken) return null;
     try {
-        // This is a simplified example. In a real app, you would pass the user's ID token from the client
-        // and verify it here to get the UID securely.
-        const user = auth().currentUser; // This will likely be null on the server without a session management solution
+        const decodedToken = await admin.auth().verifyIdToken(idToken.replace('Bearer ', ''));
+        const user = await admin.auth().getUser(decodedToken.uid);
         return user;
-    } catch (e) {
+    } catch (error) {
+        console.error('Error verifying token or getting user:', error);
         return null;
     }
 }
 
 
-export async function handleGenerateImageIdeas(originalImage: string) {
+async function checkAndIncrementGenerationCount(uid: string): Promise<boolean> {
+    const userDocRef = admin.firestore().collection('users').doc(uid);
+
+    try {
+        const userDoc = await userDocRef.get();
+        const userData = userDoc.data();
+
+        const now = new Date();
+        const today = now.toISOString().split('T')[0];
+
+        const lastGenerationDate = userData?.lastGenerationDate || null;
+        let dailyCount = userData?.dailyGenerationsCount || 0;
+
+        if (lastGenerationDate !== today) {
+            // It's a new day, reset the counter
+            dailyCount = 0;
+            await userDocRef.update({
+                lastGenerationDate: today,
+                dailyGenerationsCount: 1, // Start with 1 for the current generation
+            });
+            return true; // Allow generation
+        }
+        
+        if (dailyCount >= 10) {
+            // Limit reached
+            return false;
+        }
+        
+        // Increment the count for today
+        await userDocRef.update({ dailyGenerationsCount: FieldValue.increment(1) });
+        return true;
+
+    } catch (error) {
+        console.error('Error in checkAndIncrementGenerationCount:', error);
+        // Default to denying if there's an error to be safe
+        return false;
+    }
+}
+
+
+const ideaActionSchema = z.object({
+  idToken: z.string(),
+  originalImage: z.string().startsWith('data:image', { message: 'Invalid image format. Please provide a data URI.' }),
+});
+
+export async function handleGetImageIdeas(idToken: string, originalImage: string) {
    try {
-    const validatedArgs = generateActionSchema.parse({ originalImage });
+    const validatedArgs = ideaActionSchema.parse({ idToken, originalImage });
     
-    // 1. Get the three theme ideas
+    const user = await getAuthenticatedUser(validatedArgs.idToken);
+    if (!user) {
+      return { error: 'Authentication failed. Please sign in again.' };
+    }
+
+    const canGenerate = await checkAndIncrementGenerationCount(user.uid);
+    if (!canGenerate) {
+      return { error: 'You have reached your daily generation limit of 10 runs.' };
+    }
+    
     const ideasResult = await getPhotoThemeIdeas({
       photoDataUri: validatedArgs.originalImage,
     });
@@ -43,51 +90,73 @@ export async function handleGenerateImageIdeas(originalImage: string) {
       throw new Error('Could not generate creative ideas.');
     }
 
-    // 2. Generate an image for each idea in parallel
-    const imagePromises = ideasResult.ideas.map(idea => 
-      generateAITheme({
-        photoDataUri: validatedArgs.originalImage,
-        description: idea,
-      })
-    );
-    
-    const imageResults = await Promise.all(imagePromises);
-
-    const generatedImages = imageResults.map(result => result.generatedPhotoDataUri);
-    
-    // This is a placeholder for getting the current user, as auth().currentUser is not reliable on serverless functions.
-    // In a real app, you MUST pass the user's ID token from the client to this server action,
-    // verify it, and then get the UID.
-    // For now, we are skipping the user data update part as we cannot get the user object.
-
-
-    return { generatedImages };
+    return { ideas: ideasResult.ideas };
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred during image generation.';
-    console.error('Error in handleGenerateImage:', error);
+    console.error('Error in handleGetImageIdeas:', error);
     return { error: errorMessage };
   }
 }
 
+const generateFromIdeaSchema = z.object({
+    idToken: z.string(),
+    originalImage: z.string().startsWith('data:image'),
+    idea: z.string().min(1),
+});
+
+export async function handleGenerateImageFromIdea(idToken: string, originalImage: string, idea: string) {
+    try {
+        const validatedArgs = generateFromIdeaSchema.parse({ idToken, originalImage, idea });
+        
+        const user = await getAuthenticatedUser(validatedArgs.idToken);
+        if (!user) {
+            return { error: 'Authentication failed. Please sign in again.' };
+        }
+        
+        // Note: We don't check the limit here again, assuming it was checked when ideas were generated.
+        // If this action could be called independently, a check would be needed here too.
+
+        const result = await generateAITheme({
+            photoDataUri: validatedArgs.originalImage,
+            description: validatedArgs.idea,
+        });
+        
+        return { generatedPhotoDataUri: result.generatedPhotoDataUri };
+
+    } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
+        console.error('Error in handleGenerateImageFromIdea:', error);
+        return { error: errorMessage };
+    }
+}
+
 
 const refineActionSchema = z.object({
+  idToken: z.string(),
   originalImage: z.string().startsWith('data:image', { message: 'Invalid image format. Please provide a data URI.' }),
   prompt: z.string(),
 });
 
-export async function handleRefineImage(originalImage: string, prompt: string) {
+export async function handleRefineImage(idToken: string, originalImage: string, prompt: string) {
   try {
-    const validatedArgs = refineActionSchema.parse({ originalImage, prompt });
+    const validatedArgs = refineActionSchema.parse({ idToken, originalImage, prompt });
+    
+    const user = await getAuthenticatedUser(validatedArgs.idToken);
+    if (!user) {
+        return { error: 'Authentication failed. Please sign in again.' };
+    }
+
+    const canGenerate = await checkAndIncrementGenerationCount(user.uid);
+    if (!canGenerate) {
+        return { error: 'You have reached your daily generation limit of 10 runs.' };
+    }
     
     const result = await generateAITheme({
       photoDataUri: validatedArgs.originalImage,
       description: validatedArgs.prompt,
     });
     
-    // Similar to above, getting the user here is not straightforward.
-    // We will skip the user data update for now.
-
     return { generatedPhotoDataUri: result.generatedPhotoDataUri };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred during image generation.';
@@ -97,24 +166,29 @@ export async function handleRefineImage(originalImage: string, prompt: string) {
 }
 
 const variationsActionSchema = z.object({
+  idToken: z.string(),
   imageToVary: z.string().startsWith('data:image', { message: 'Invalid image format. Please provide a data URI.' }),
 });
 
 
-export async function handleGenerateVariations(imageToVary: string) {
+export async function handleGenerateVariations(idToken: string, imageToVary: string) {
   try {
-    const validatedArgs = variationsActionSchema.parse({ imageToVary });
+    const validatedArgs = variationsActionSchema.parse({ idToken, imageToVary });
     
+    const user = await getAuthenticatedUser(validatedArgs.idToken);
+    if (!user) {
+        return { error: 'Authentication failed. Please sign in again.' };
+    }
+    
+    const canGenerate = await checkAndIncrementGenerationCount(user.uid);
+    if (!canGenerate) {
+        return { error: 'You have reached your daily generation limit of 10 runs.' };
+    }
+
     const result = await generateVariations({
       photoDataUri: validatedArgs.imageToVary,
     });
     
-    // This is a placeholder for getting the current user, as auth().currentUser is not reliable on serverless functions.
-    // In a real app, you MUST pass the user's ID token from the client to this server action,
-    // verify it, and then get the UID.
-    // For now, we are skipping the user data update part as we cannot get the user object.
-
-
     return { generatedImages: result.variations };
 
   } catch (error) {
