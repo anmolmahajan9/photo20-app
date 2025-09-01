@@ -45,10 +45,11 @@ async function checkAndIncrementGenerationCount(uid: string): Promise<boolean> {
         if (lastGenerationDate !== today) {
             // It's a new day, reset the counter
             dailyCount = 0;
-            await userDocRef.update({
+            // Use set with merge to create the document if it doesn't exist, or update it if it does.
+            await userDocRef.set({
                 lastGenerationDate: today,
-                dailyGenerationsCount: 1, // Start with 1 for the current generation
-            });
+                dailyGenerationsCount: 1,
+            }, { merge: true });
             return true; // Allow generation
         }
         
@@ -58,7 +59,10 @@ async function checkAndIncrementGenerationCount(uid: string): Promise<boolean> {
         }
         
         // Increment the count for today
-        await userDocRef.update({ dailyGenerationsCount: FieldValue.increment(1) });
+        // Use set with merge to be safe, though an update would likely work here.
+        await userDocRef.set({ 
+            dailyGenerationsCount: FieldValue.increment(1) 
+        }, { merge: true });
         return true;
 
     } catch (error) {
