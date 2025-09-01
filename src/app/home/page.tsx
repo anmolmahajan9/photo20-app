@@ -67,13 +67,13 @@ export default function HomePage() {
                     <div className="text-center">
                         <h3 className="text-2xl font-semibold mb-4 text-muted-foreground font-headline">Before</h3>
                         <div className="relative aspect-square w-full max-w-md mx-auto rounded-xl shadow-lg overflow-hidden border">
-                            <Image src="https://picsum.photos/id/1062/600/600" alt="Before - a camera on a plain background" width={600} height={600} className="object-cover" data-ai-hint="product camera" />
+                            <Image src="https://firebasestudio-hosting-prod.web.app/images/570a2562-b7e6-42d4-a131-b6a482b5f0d3.jpeg" alt="Before - a toy car on a race track" width={600} height={600} className="object-cover" data-ai-hint="toy car" />
                         </div>
                     </div>
                     <div className="text-center">
                         <h3 className="text-2xl font-semibold mb-4 text-primary font-headline">After</h3>
                          <div className="relative aspect-square w-full max-w-md mx-auto rounded-xl shadow-2xl overflow-hidden border-2 border-primary">
-                            <Image src="https://picsum.photos/id/250/600/600" alt="After - a professionally shot camera" width={600} height={600} className="object-cover" data-ai-hint="professional camera" />
+                            <Image src="https://picsum.photos/id/1072/600/600" alt="After - a professionally shot sports car" width={600} height={600} className="object-cover" data-ai-hint="professional car" />
                         </div>
                     </div>
                 </div>
