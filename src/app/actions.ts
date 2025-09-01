@@ -27,44 +27,44 @@ async function checkAndIncrementGenerationCount(uid: string): Promise<boolean> {
     const userDocRef = admin.firestore().collection('users').doc(uid);
 
     try {
-        const userDoc = await userDocRef.get();
-        const userData = userDoc.data();
-        
-        const userAuth = await admin.auth().getUser(uid);
-        const userEmail = userAuth.email;
+        await admin.firestore().runTransaction(async (transaction) => {
+            const userDoc = await transaction.get(userDocRef);
+            
+            const userAuth = await admin.auth().getUser(uid);
+            const userEmail = userAuth.email;
 
-        const now = new Date();
-        const today = now.toISOString().split('T')[0];
+            const now = new Date();
+            const today = now.toISOString().split('T')[0];
 
-        const lastGenerationDate = userData?.lastGenerationDate || null;
-        let dailyCount = userData?.dailyGenerationsCount || 0;
+            let dailyCount = 0;
+            let lastGenerationDate = null;
 
-        const limit = userEmail === 'anmolmahajan9@gmail.com' ? 100 : 10;
-        const limitErrorMessage = `You have reached your daily generation limit of ${limit} runs.`;
+            if (userDoc.exists) {
+                const userData = userDoc.data();
+                dailyCount = userData?.dailyGenerationsCount || 0;
+                lastGenerationDate = userData?.lastGenerationDate || null;
+            }
 
-        if (lastGenerationDate !== today) {
-            // It's a new day, reset the counter
-            dailyCount = 0;
-            // Use set with merge to create the document if it doesn't exist, or update it if it does.
-            await userDocRef.set({
-                lastGenerationDate: today,
-                dailyGenerationsCount: 1,
-            }, { merge: true });
-            return true; // Allow generation
-        }
-        
-        if (dailyCount >= limit) {
-            // Limit reached
-            throw new Error(limitErrorMessage);
-        }
-        
-        // Increment the count for today
-        // Use set with merge to be safe, though an update would likely work here.
-        await userDocRef.set({ 
-            dailyGenerationsCount: FieldValue.increment(1) 
-        }, { merge: true });
+            const limit = userEmail === 'anmolmahajan9@gmail.com' ? 100 : 10;
+            const limitErrorMessage = `You have reached your daily generation limit of ${limit} runs.`;
+
+            if (lastGenerationDate !== today) {
+                // It's a new day, reset the counter
+                transaction.set(userDocRef, {
+                    lastGenerationDate: today,
+                    dailyGenerationsCount: 1
+                }, { merge: true });
+            } else {
+                if (dailyCount >= limit) {
+                    throw new Error(limitErrorMessage);
+                }
+                // Increment the count for today
+                transaction.set(userDocRef, { 
+                    dailyGenerationsCount: FieldValue.increment(1) 
+                }, { merge: true });
+            }
+        });
         return true;
-
     } catch (error) {
         console.error('Error in checkAndIncrementGenerationCount:', error);
         // Re-throw the error to be caught by the calling action

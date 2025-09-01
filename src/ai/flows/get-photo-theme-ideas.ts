@@ -21,8 +21,13 @@ const GetPhotoThemeIdeasInputSchema = z.object({
 });
 export type GetPhotoThemeIdeasInput = z.infer<typeof GetPhotoThemeIdeasInputSchema>;
 
+const IdeaSchema = z.object({
+    shortPhrase: z.string().describe("A short, user-friendly phrase (3-5 words) summarizing the theme. This will be shown to the user."),
+    detailedPrompt: z.string().describe("A detailed, single-sentence prompt for the image generation model, encapsulating the scene, lighting, and mood."),
+});
+
 const GetPhotoThemeIdeasOutputSchema = z.object({
-  ideas: z.array(z.string()).length(3).describe('An array of exactly three distinct and detailed photoshoot prompts, ready for an image generation model.'),
+  ideas: z.array(IdeaSchema).length(3).describe('An array of exactly three distinct photoshoot ideas, each with a short phrase and a detailed prompt.'),
 });
 export type GetPhotoThemeIdeasOutput = z.infer<typeof GetPhotoThemeIdeasOutputSchema>;
 
@@ -38,11 +43,11 @@ const prompt = ai.definePrompt({
     output: {schema: GetPhotoThemeIdeasOutputSchema},
     prompt: `You are a professional product photographer and creative director. I will provide you with a product photo. Based on the product’s appearance, design, and likely target audience, generate three creative product photography ideas that a seller could use to promote this item.
 
-For each of the three ideas, provide a concise, single-sentence prompt that can be fed directly into an image generation model. This prompt should encapsulate the scene, lighting, and mood.
+For each of the three ideas, provide two things:
+1. A short, user-friendly phrase (3-5 words) that summarizes the theme (e.g., "Warm & Rustic," "Sleek & Modern," "Outdoor Adventure"). This will be shown to the user.
+2. A detailed, single-sentence prompt that can be fed directly into an image generation model. This prompt should encapsulate the scene, lighting, and mood (e.g., "A close-up of the product on a rustic wooden surface, with soft, natural light filtering in from a nearby window, creating a warm and inviting atmosphere.").
 
-For example, if the idea is for a watch on a wooden table, the prompt might be: "A close-up of the product on a rustic wooden surface, with soft, natural light filtering in from a nearby window, creating a warm and inviting atmosphere."
-
-Based on the photo provided, generate three such prompts.
+Based on the photo provided, generate three such ideas, each with a shortPhrase and a detailedPrompt.
 
 Photo: {{media url=photoDataUri}}`,
 });
@@ -59,3 +64,4 @@ const getPhotoThemeIdeasFlow = ai.defineFlow(
         return output!;
     }
 )
+

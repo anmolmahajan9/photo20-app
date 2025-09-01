@@ -22,6 +22,11 @@ import { useAuth } from '@/context/AuthContext';
 
 type GenerationStep = 'initial' | 'ideas' | 'generating' | 'refining' | 'angles' | 'final';
 
+type CreativeIdea = {
+  shortPhrase: string;
+  detailedPrompt: string;
+};
+
 function DashboardPage() {
   const { user } = useAuth();
   const [originalImage, setOriginalImage] = useState<string | null>(null);
@@ -31,8 +36,8 @@ function DashboardPage() {
   const [refinementPrompt, setRefinementPrompt] = useState<string>('');
   
   const [generationStep, setGenerationStep] = useState<GenerationStep>('initial');
-  const [creativeIdeas, setCreativeIdeas] = useState<string[]>([]);
-  const [selectedIdea, setSelectedIdea] = useState<string | null>(null);
+  const [creativeIdeas, setCreativeIdeas] = useState<CreativeIdea[]>([]);
+  const [selectedIdea, setSelectedIdea] = useState<CreativeIdea | null>(null);
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isRefining, setIsRefining] = useState<boolean>(false);
@@ -186,7 +191,7 @@ function DashboardPage() {
     }
   };
 
-  const handleIdeaSelection = async (idea: string) => {
+  const handleIdeaSelection = async (idea: CreativeIdea) => {
     if (!originalImage || !user) return;
     setSelectedIdea(idea);
     setGenerationStep('generating');
@@ -194,7 +199,7 @@ function DashboardPage() {
 
     try {
       const idToken = await user.getIdToken();
-      const result = await handleGenerateImageFromIdea(idToken, originalImage, idea);
+      const result = await handleGenerateImageFromIdea(idToken, originalImage, idea.detailedPrompt);
       if (result.error) throw new Error(result.error);
       
       if (result.generatedPhotoDataUri) {
@@ -461,7 +466,7 @@ function DashboardPage() {
                             onClick={() => handleIdeaSelection(idea)}
                             className="p-4 hover:bg-accent/10 hover:border-accent cursor-pointer transition-all"
                         >
-                            <p className="font-medium text-center">{idea}</p>
+                            <p className="font-medium text-center">{idea.shortPhrase}</p>
                         </Card>
                     ))}
                 </div>
