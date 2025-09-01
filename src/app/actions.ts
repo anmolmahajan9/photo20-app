@@ -29,12 +29,18 @@ async function checkAndIncrementGenerationCount(uid: string): Promise<boolean> {
     try {
         const userDoc = await userDocRef.get();
         const userData = userDoc.data();
+        
+        const userAuth = await admin.auth().getUser(uid);
+        const userEmail = userAuth.email;
 
         const now = new Date();
         const today = now.toISOString().split('T')[0];
 
         const lastGenerationDate = userData?.lastGenerationDate || null;
         let dailyCount = userData?.dailyGenerationsCount || 0;
+
+        const limit = userEmail === 'anmolmahajan9@gmail.com' ? 100 : 10;
+        const limitErrorMessage = `You have reached your daily generation limit of ${limit} runs.`;
 
         if (lastGenerationDate !== today) {
             // It's a new day, reset the counter
@@ -46,9 +52,9 @@ async function checkAndIncrementGenerationCount(uid: string): Promise<boolean> {
             return true; // Allow generation
         }
         
-        if (dailyCount >= 10) {
+        if (dailyCount >= limit) {
             // Limit reached
-            return false;
+            throw new Error(limitErrorMessage);
         }
         
         // Increment the count for today
@@ -57,8 +63,8 @@ async function checkAndIncrementGenerationCount(uid: string): Promise<boolean> {
 
     } catch (error) {
         console.error('Error in checkAndIncrementGenerationCount:', error);
-        // Default to denying if there's an error to be safe
-        return false;
+        // Re-throw the error to be caught by the calling action
+        throw error;
     }
 }
 
@@ -77,10 +83,7 @@ export async function handleGetImageIdeas(idToken: string, originalImage: string
       return { error: 'Authentication failed. Please sign in again.' };
     }
 
-    const canGenerate = await checkAndIncrementGenerationCount(user.uid);
-    if (!canGenerate) {
-      return { error: 'You have reached your daily generation limit of 10 runs.' };
-    }
+    await checkAndIncrementGenerationCount(user.uid);
     
     const ideasResult = await getPhotoThemeIdeas({
       photoDataUri: validatedArgs.originalImage,
@@ -147,10 +150,7 @@ export async function handleRefineImage(idToken: string, originalImage: string, 
         return { error: 'Authentication failed. Please sign in again.' };
     }
 
-    const canGenerate = await checkAndIncrementGenerationCount(user.uid);
-    if (!canGenerate) {
-        return { error: 'You have reached your daily generation limit of 10 runs.' };
-    }
+    await checkAndIncrementGenerationCount(user.uid);
     
     const result = await generateAITheme({
       photoDataUri: validatedArgs.originalImage,
@@ -180,10 +180,7 @@ export async function handleGenerateVariations(idToken: string, imageToVary: str
         return { error: 'Authentication failed. Please sign in again.' };
     }
     
-    const canGenerate = await checkAndIncrementGenerationCount(user.uid);
-    if (!canGenerate) {
-        return { error: 'You have reached your daily generation limit of 10 runs.' };
-    }
+    await checkAndIncrementGenerationCount(user.uid);
 
     const result = await generateVariations({
       photoDataUri: validatedArgs.imageToVary,
