@@ -9,8 +9,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { handleGetImageIdeas, handleGenerateImageFromIdea, handleRefineImage, handleGenerateVariations } from '../actions';
-import { Upload, Download, Wand2, Camera, RefreshCw, Sparkles, Image as ImageIcon, X, Copy, Orbit, CheckCircle, Diamond, Leaf, Palette, Star, Zap } from 'lucide-react';
+import { handleGenerateFromTemplate, handleRefineImage, handleGenerateVariations } from '../actions';
+import { Upload, Download, Wand2, Camera, RefreshCw, Sparkles, Image as ImageIcon, X, Copy, Orbit, Diamond, Leaf, Palette, Star, Zap } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
@@ -20,12 +20,7 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 
 
-type GenerationStep = 'initial' | 'templates' | 'ideas' | 'generating' | 'refining' | 'angles' | 'final';
-
-type CreativeIdea = {
-  shortPhrase: string;
-  detailedPrompt: string;
-};
+type GenerationStep = 'initial' | 'templates' | 'generating' | 'refining' | 'angles' | 'final';
 
 const templates = [
   { name: 'Minimalist', icon: Zap, description: "Clean, simple, and focused on the product." },
@@ -44,8 +39,6 @@ function DashboardPage() {
   const [refinementPrompt, setRefinementPrompt] = useState<string>('');
   
   const [generationStep, setGenerationStep] = useState<GenerationStep>('initial');
-  const [creativeIdeas, setCreativeIdeas] = useState<CreativeIdea[]>([]);
-  const [selectedIdea, setSelectedIdea] = useState<CreativeIdea | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -123,8 +116,6 @@ function DashboardPage() {
     setActiveImage(null);
     setRefinementPrompt('');
     setGenerationStep('initial');
-    setCreativeIdeas([]);
-    setSelectedIdea(null);
     setSelectedTemplate(null);
     const input = document.getElementById('image-upload') as HTMLInputElement;
     if (input) {
@@ -184,35 +175,11 @@ function DashboardPage() {
     setSelectedTemplate(template);
     setIsLoading(true);
     setGenerationStep('generating');
-    setCreativeIdeas([]);
     setGeneratedImages([]);
     
     try {
       const idToken = await user.getIdToken();
-      const result = await handleGetImageIdeas(idToken, originalImage, template);
-      if (result.error) throw new Error(result.error);
-      
-      setCreativeIdeas(result.ideas || []);
-      setGenerationStep('ideas');
-
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
-      toast({ title: 'Idea Generation Failed', description: errorMessage, variant: 'destructive' });
-      setGenerationStep('templates'); // Go back to template selection
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleIdeaSelection = async (idea: CreativeIdea) => {
-    if (!originalImage || !user) return;
-    setSelectedIdea(idea);
-    setGenerationStep('generating');
-    setIsLoading(true);
-
-    try {
-      const idToken = await user.getIdToken();
-      const result = await handleGenerateImageFromIdea(idToken, originalImage, idea.detailedPrompt);
+      const result = await handleGenerateFromTemplate(idToken, originalImage, template);
       if (result.error) throw new Error(result.error);
       
       if (result.generatedPhotoDataUri) {
@@ -221,10 +188,11 @@ function DashboardPage() {
       } else {
         throw new Error('The AI failed to generate an image.');
       }
+
     } catch (error) {
-       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
-       toast({ title: 'Image Generation Failed', description: errorMessage, variant: 'destructive' });
-       setGenerationStep('ideas'); // Go back to ideas step on failure
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
+      toast({ title: 'Image Generation Failed', description: errorMessage, variant: 'destructive' });
+      setGenerationStep('templates'); // Go back to template selection
     } finally {
       setIsLoading(false);
     }
@@ -427,7 +395,6 @@ function DashboardPage() {
             </Tabs>
           </div>
         </CardContent>
-        {/* No footer needed here anymore as the flow is sequential */}
       </Card>
 
       <Card className="shadow-lg w-full">
@@ -435,7 +402,6 @@ function DashboardPage() {
           <CardTitle className="font-headline text-2xl">
             {generationStep === 'initial' && 'Generation Panel'}
             {generationStep === 'templates' && '2. Choose a Template'}
-            {generationStep === 'ideas' && '3. Choose an Idea'}
             {(generationStep === 'generating' || isLoading) && 'Generating...'}
             {generationStep === 'refining' && 'Refining Your Image...'}
             {generationStep === 'angles' && 'Generating New Angles...'}
@@ -443,8 +409,7 @@ function DashboardPage() {
           </CardTitle>
           <CardDescription>
             {generationStep === 'initial' && 'Your AI-powered tools will appear here once you upload a photo.'}
-            {generationStep === 'templates' && 'Select a style to guide the creative process.'}
-            {generationStep === 'ideas' && 'Select a theme to generate your perfect shot.'}
+            {generationStep === 'templates' && 'Select a style to generate your perfect shot.'}
             {(generationStep === 'generating' || isLoading) && 'The AI is working its magic. This can take a moment.'}
             {generationStep === 'refining' && 'Applying your changes to the image.'}
             {generationStep === 'angles' && 'Creating new perspectives of your product.'}
@@ -472,18 +437,6 @@ function DashboardPage() {
                       <p className="text-sm text-muted-foreground">{template.description}</p>
                     </Card>
                   ))}
-                </div>
-            ) : generationStep === 'ideas' ? (
-                <div className="grid grid-cols-1 gap-4 w-full">
-                    {creativeIdeas.map((idea, index) => (
-                        <Card 
-                            key={index}
-                            onClick={() => handleIdeaSelection(idea)}
-                            className="p-4 hover:bg-accent/10 hover:border-accent cursor-pointer transition-all"
-                        >
-                            <p className="font-medium text-center">{idea.shortPhrase}</p>
-                        </Card>
-                    ))}
                 </div>
             ) : generatedImages.length > 0 ? (
                  <div className="flex flex-col gap-4 w-full">

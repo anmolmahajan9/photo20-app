@@ -4,9 +4,9 @@
 /**
  * @fileOverview This file defines a Genkit flow for generating creative photoshoot ideas for a given product image, guided by a user-selected template.
  *
- * - getPhotoThemeIdeas - A function that generates three distinct photoshoot theme ideas based on a template.
- * - GetPhotoThemeIdeasInput - The input type for the getPhotoThemeIdeas function.
- * - GetPhotoThemeIdeasOutput - The return type for the getPhotoThemeIdeas function.
+ * THIS FILE IS NO LONGER USED and will be removed in a future update.
+ * The functionality has been consolidated into generate-ai-theme.ts.
+ *
  */
 
 import {ai} from '@/ai/genkit';

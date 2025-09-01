@@ -1,8 +1,7 @@
 
 'use server';
 
-import { generateAITheme, GenerateAIThemeInput } from '@/ai/flows/generate-ai-theme';
-import { getPhotoThemeIdeas } from '@/ai/flows/get-photo-theme-ideas';
+import { generateAITheme, generateAIThemeFromTemplate } from '@/ai/flows/generate-ai-theme';
 import { generateVariations } from '@/ai/flows/generate-variations';
 import { z } from 'zod';
 import admin from '@/lib/firebaseAdmin';
@@ -73,15 +72,15 @@ async function checkAndIncrementGenerationCount(uid: string): Promise<boolean> {
 }
 
 
-const ideaActionSchema = z.object({
+const templateActionSchema = z.object({
   idToken: z.string(),
   originalImage: z.string().startsWith('data:image', { message: 'Invalid image format. Please provide a data URI.' }),
   template: z.string().min(1, { message: 'A template must be selected.' }),
 });
 
-export async function handleGetImageIdeas(idToken: string, originalImage: string, template: string) {
+export async function handleGenerateFromTemplate(idToken: string, originalImage: string, template: string) {
    try {
-    const validatedArgs = ideaActionSchema.parse({ idToken, originalImage, template });
+    const validatedArgs = templateActionSchema.parse({ idToken, originalImage, template });
     
     const user = await getAuthenticatedUser(validatedArgs.idToken);
     if (!user) {
@@ -90,54 +89,18 @@ export async function handleGetImageIdeas(idToken: string, originalImage: string
 
     await checkAndIncrementGenerationCount(user.uid);
     
-    const ideasResult = await getPhotoThemeIdeas({
+    const result = await generateAIThemeFromTemplate({
       photoDataUri: validatedArgs.originalImage,
       template: validatedArgs.template,
     });
     
-    if (!ideasResult.ideas || ideasResult.ideas.length !== 3) {
-      throw new Error('Could not generate creative ideas.');
-    }
-
-    return { ideas: ideasResult.ideas };
+    return { generatedPhotoDataUri: result.generatedPhotoDataUri };
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred during image generation.';
-    console.error('Error in handleGetImageIdeas:', error);
+    console.error('Error in handleGenerateFromTemplate:', error);
     return { error: errorMessage };
   }
-}
-
-const generateFromIdeaSchema = z.object({
-    idToken: z.string(),
-    originalImage: z.string().startsWith('data:image'),
-    idea: z.string().min(1),
-});
-
-export async function handleGenerateImageFromIdea(idToken: string, originalImage: string, idea: string) {
-    try {
-        const validatedArgs = generateFromIdeaSchema.parse({ idToken, originalImage, idea });
-        
-        const user = await getAuthenticatedUser(validatedArgs.idToken);
-        if (!user) {
-            return { error: 'Authentication failed. Please sign in again.' };
-        }
-        
-        // Note: We don't check the limit here again, assuming it was checked when ideas were generated.
-        // If this action could be called independently, a check would be needed here too.
-
-        const result = await generateAITheme({
-            photoDataUri: validatedArgs.originalImage,
-            description: validatedArgs.idea,
-        });
-        
-        return { generatedPhotoDataUri: result.generatedPhotoDataUri };
-
-    } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
-        console.error('Error in handleGenerateImageFromIdea:', error);
-        return { error: errorMessage };
-    }
 }
 
 
