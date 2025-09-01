@@ -38,12 +38,19 @@ async function checkAndIncrementGenerationCount(uid: string): Promise<boolean> {
             let dailyCount = 0;
             let lastGenerationDate = null;
 
-            if (userDoc.exists) {
-                const userData = userDoc.data();
-                dailyCount = userData?.dailyGenerationsCount || 0;
-                lastGenerationDate = userData?.lastGenerationDate || null;
-            }
+            // Set default data for a new user, or if fields are missing
+            let userData = {
+                lastGenerationDate: today,
+                dailyGenerationsCount: 0,
+            };
 
+            if (userDoc.exists) {
+                const existingData = userDoc.data();
+                dailyCount = existingData?.dailyGenerationsCount || 0;
+                lastGenerationDate = existingData?.lastGenerationDate || null;
+                userData = { ...userData, ...existingData };
+            }
+            
             const limit = userEmail === 'anmolmahajan9@gmail.com' ? 100 : 10;
             const limitErrorMessage = `You have reached your daily generation limit of ${limit} runs.`;
 
@@ -58,13 +65,23 @@ async function checkAndIncrementGenerationCount(uid: string): Promise<boolean> {
                     throw new Error(limitErrorMessage);
                 }
                 // Increment the count for today
-                transaction.set(userDocRef, { 
+                transaction.update(userDocRef, { 
                     dailyGenerationsCount: FieldValue.increment(1) 
-                }, { merge: true });
+                });
             }
         });
         return true;
     } catch (error) {
+        if ((error as any).code === 'NOT_FOUND') {
+            // Document doesn't exist, create it and set count to 1
+             const now = new Date();
+             const today = now.toISOString().split('T')[0];
+             await userDocRef.set({
+                lastGenerationDate: today,
+                dailyGenerationsCount: 1
+             }, { merge: true });
+             return true;
+        }
         console.error('Error in checkAndIncrementGenerationCount:', error);
         // Re-throw the error to be caught by the calling action
         throw error;
@@ -137,12 +154,13 @@ export async function handleRefineImage(idToken: string, originalImage: string, 
 const variationsActionSchema = z.object({
   idToken: z.string(),
   imageToVary: z.string().startsWith('data:image', { message: 'Invalid image format. Please provide a data URI.' }),
+  angles: z.array(z.string()).min(1, 'Please select at least one angle.'),
 });
 
 
-export async function handleGenerateVariations(idToken: string, imageToVary: string) {
+export async function handleGenerateVariations(idToken: string, imageToVary: string, angles: string[]) {
   try {
-    const validatedArgs = variationsActionSchema.parse({ idToken, imageToVary });
+    const validatedArgs = variationsActionSchema.parse({ idToken, imageToVary, angles });
     
     const user = await getAuthenticatedUser(validatedArgs.idToken);
     if (!user) {
@@ -153,6 +171,7 @@ export async function handleGenerateVariations(idToken: string, imageToVary: str
 
     const result = await generateVariations({
       photoDataUri: validatedArgs.imageToVary,
+      angles: validatedArgs.angles,
     });
     
     return { generatedImages: result.variations };
@@ -163,5 +182,3 @@ export async function handleGenerateVariations(idToken: string, imageToVary: str
     return { error: errorMessage };
   }
 }
-
-    
