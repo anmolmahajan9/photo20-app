@@ -2,9 +2,9 @@
 'use server';
 
 /**
- * @fileOverview This file defines a Genkit flow for generating creative photoshoot ideas for a given product image.
+ * @fileOverview This file defines a Genkit flow for generating creative photoshoot ideas for a given product image, guided by a user-selected template.
  *
- * - getPhotoThemeIdeas - A function that generates three distinct photoshoot theme ideas.
+ * - getPhotoThemeIdeas - A function that generates three distinct photoshoot theme ideas based on a template.
  * - GetPhotoThemeIdeasInput - The input type for the getPhotoThemeIdeas function.
  * - GetPhotoThemeIdeasOutput - The return type for the getPhotoThemeIdeas function.
  */
@@ -18,6 +18,7 @@ const GetPhotoThemeIdeasInputSchema = z.object({
     .describe(
       "A photo of a product, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
     ),
+  template: z.string().describe("The user-selected template to guide the photoshoot ideas (e.g., 'Minimalist', 'Luxury', 'Surprise Me')."),
 });
 export type GetPhotoThemeIdeasInput = z.infer<typeof GetPhotoThemeIdeasInputSchema>;
 
@@ -41,13 +42,17 @@ const prompt = ai.definePrompt({
     name: 'getPhotoThemeIdeasPrompt',
     input: {schema: GetPhotoThemeIdeasInputSchema},
     output: {schema: GetPhotoThemeIdeasOutputSchema},
-    prompt: `You are a professional product photographer and creative director. I will provide you with a product photo. Based on the product’s appearance, design, and likely target audience, generate three creative product photography ideas that a seller could use to promote this item.
+    prompt: `You are a professional product photographer and creative director. The user has provided a product photo and selected a style template: "{{template}}".
+
+Based on the product and the chosen template, generate THREE creative and distinct product photography ideas.
+
+If the template is "Surprise Me", you must be 1000% creative. The ideas should be unconventional, artistic, and visually stunning. The user's mind should be blown away. Think abstract, surreal, or completely unexpected.
 
 For each of the three ideas, provide two things:
-1. A short, user-friendly phrase (3-5 words) that summarizes the theme (e.g., "Warm & Rustic," "Sleek & Modern," "Outdoor Adventure"). This phrase should give the user a clear idea of the visual style of the generated photo.
-2. A detailed, single-sentence prompt that can be fed directly into an image generation model. This prompt should encapsulate the scene, lighting, and mood (e.g., "A close-up of the product on a rustic wooden surface, with soft, natural light filtering in from a nearby window, creating a warm and inviting atmosphere.").
+1.  A short, user-friendly phrase (3-5 words) that summarizes the theme (e.g., "Sleek & Modern," "Outdoor Adventure," "Floating in Space"). This phrase must give the user a clear idea of the visual style.
+2.  A detailed, single-sentence prompt that can be fed directly into an image generation model. This prompt must encapsulate the scene, lighting, and mood (e.g., "A close-up of the product on a polished obsidian surface, with a single, dramatic spotlight from above, creating a sense of deep shadows and luxury.").
 
-Based on the photo provided, generate three such ideas, each with a shortPhrase and a detailedPrompt.
+Generate three such ideas, each with a shortPhrase and a detailedPrompt, that are all strongly aligned with the "{{template}}" theme.
 
 Photo: {{media url=photoDataUri}}`,
 });
@@ -65,3 +70,4 @@ const getPhotoThemeIdeasFlow = ai.defineFlow(
     }
 )
 
+    

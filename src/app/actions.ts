@@ -76,11 +76,12 @@ async function checkAndIncrementGenerationCount(uid: string): Promise<boolean> {
 const ideaActionSchema = z.object({
   idToken: z.string(),
   originalImage: z.string().startsWith('data:image', { message: 'Invalid image format. Please provide a data URI.' }),
+  template: z.string().min(1, { message: 'A template must be selected.' }),
 });
 
-export async function handleGetImageIdeas(idToken: string, originalImage: string) {
+export async function handleGetImageIdeas(idToken: string, originalImage: string, template: string) {
    try {
-    const validatedArgs = ideaActionSchema.parse({ idToken, originalImage });
+    const validatedArgs = ideaActionSchema.parse({ idToken, originalImage, template });
     
     const user = await getAuthenticatedUser(validatedArgs.idToken);
     if (!user) {
@@ -91,6 +92,7 @@ export async function handleGetImageIdeas(idToken: string, originalImage: string
     
     const ideasResult = await getPhotoThemeIdeas({
       photoDataUri: validatedArgs.originalImage,
+      template: validatedArgs.template,
     });
     
     if (!ideasResult.ideas || ideasResult.ideas.length !== 3) {
@@ -198,3 +200,5 @@ export async function handleGenerateVariations(idToken: string, imageToVary: str
     return { error: errorMessage };
   }
 }
+
+    

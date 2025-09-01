@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { handleGetImageIdeas, handleGenerateImageFromIdea, handleRefineImage, handleGenerateVariations } from '../actions';
-import { Upload, Download, Wand2, Camera, RefreshCw, Sparkles, Image as ImageIcon, X, Copy, Orbit, CheckCircle } from 'lucide-react';
+import { Upload, Download, Wand2, Camera, RefreshCw, Sparkles, Image as ImageIcon, X, Copy, Orbit, CheckCircle, Diamond, Leaf, Palette, Star, Zap } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
@@ -20,12 +20,20 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 
 
-type GenerationStep = 'initial' | 'ideas' | 'generating' | 'refining' | 'angles' | 'final';
+type GenerationStep = 'initial' | 'templates' | 'ideas' | 'generating' | 'refining' | 'angles' | 'final';
 
 type CreativeIdea = {
   shortPhrase: string;
   detailedPrompt: string;
 };
+
+const templates = [
+  { name: 'Minimalist', icon: Zap, description: "Clean, simple, and focused on the product." },
+  { name: 'Luxury', icon: Diamond, description: "Elegant, sophisticated, and high-end feel." },
+  { name: 'Earthy', icon: Leaf, description: "Natural, organic, and rustic settings." },
+  { name: 'Vibrant', icon: Palette, description: "Bold, colorful, and energetic scenes." },
+  { name: 'Surprise Me', icon: Star, description: "Wildly creative, unexpected, and mind-blowing concepts." },
+];
 
 function DashboardPage() {
   const { user } = useAuth();
@@ -38,6 +46,7 @@ function DashboardPage() {
   const [generationStep, setGenerationStep] = useState<GenerationStep>('initial');
   const [creativeIdeas, setCreativeIdeas] = useState<CreativeIdea[]>([]);
   const [selectedIdea, setSelectedIdea] = useState<CreativeIdea | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isRefining, setIsRefining] = useState<boolean>(false);
@@ -116,6 +125,7 @@ function DashboardPage() {
     setGenerationStep('initial');
     setCreativeIdeas([]);
     setSelectedIdea(null);
+    setSelectedTemplate(null);
     const input = document.getElementById('image-upload') as HTMLInputElement;
     if (input) {
       input.value = '';
@@ -131,6 +141,7 @@ function DashboardPage() {
         resetState();
         setOriginalImage(result);
         setDisplayImage(result);
+        setGenerationStep('templates');
       };
       reader.readAsDataURL(file);
     }
@@ -149,6 +160,7 @@ function DashboardPage() {
         resetState();
         setOriginalImage(dataUrl);
         setDisplayImage(dataUrl);
+        setGenerationStep('templates');
         setMode('upload');
       }
     }
@@ -164,11 +176,12 @@ function DashboardPage() {
     resetState();
   };
 
-  const handleInitialGeneration = async () => {
+  const handleTemplateSelection = async (template: string) => {
     if (!originalImage || !user) {
       toast({ title: 'Error', description: 'Please upload an image and sign in.', variant: 'destructive' });
       return;
     }
+    setSelectedTemplate(template);
     setIsLoading(true);
     setGenerationStep('generating');
     setCreativeIdeas([]);
@@ -176,7 +189,7 @@ function DashboardPage() {
     
     try {
       const idToken = await user.getIdToken();
-      const result = await handleGetImageIdeas(idToken, originalImage);
+      const result = await handleGetImageIdeas(idToken, originalImage, template);
       if (result.error) throw new Error(result.error);
       
       setCreativeIdeas(result.ideas || []);
@@ -185,7 +198,7 @@ function DashboardPage() {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
       toast({ title: 'Idea Generation Failed', description: errorMessage, variant: 'destructive' });
-      setGenerationStep('initial');
+      setGenerationStep('templates'); // Go back to template selection
     } finally {
       setIsLoading(false);
     }
@@ -338,11 +351,14 @@ function DashboardPage() {
             <Wand2 className="text-accent" />
             Create Your Perfect Shot
           </CardTitle>
-          <CardDescription>Upload an image and let our AI create professional product shots for you.</CardDescription>
+          <CardDescription>
+            {generationStep === 'initial' && "1. Start by providing a photo of your product."}
+            {generationStep === 'templates' && "2. Choose a style template to guide the AI."}
+            {generationStep !== 'initial' && generationStep !== 'templates' && "Follow the steps on the right to create your image."}
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-2">
-            <Label htmlFor="image-upload" className="text-lg font-semibold font-headline">1. Provide a Photo</Label>
             <Tabs value={mode} onValueChange={(value) => setMode(value as 'upload' | 'capture')} className="w-full">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="upload" disabled={isLoadingState}><Upload className="mr-2 h-4 w-4" />Upload</TabsTrigger>
@@ -411,38 +427,23 @@ function DashboardPage() {
             </Tabs>
           </div>
         </CardContent>
-        <CardFooter>
-          <Button onClick={handleInitialGeneration} disabled={isLoadingState || !originalImage || generationStep !== 'initial'} className="w-full text-lg py-6">
-            {isLoading ? (
-              <>
-                <svg className="animate-spin -ml-1 mr-3 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Generating...
-              </>
-            ) : (
-              <>
-                <Wand2 className="mr-2" />
-                Generate Ideas
-              </>
-            )}
-          </Button>
-        </CardFooter>
+        {/* No footer needed here anymore as the flow is sequential */}
       </Card>
 
       <Card className="shadow-lg w-full">
         <CardHeader>
           <CardTitle className="font-headline text-2xl">
-            {generationStep === 'initial' && 'Generated Image'}
-            {generationStep === 'ideas' && '2. Choose an Idea'}
-            {(generationStep === 'generating' || isLoading) && 'Generating Your Image...'}
+            {generationStep === 'initial' && 'Generation Panel'}
+            {generationStep === 'templates' && '2. Choose a Template'}
+            {generationStep === 'ideas' && '3. Choose an Idea'}
+            {(generationStep === 'generating' || isLoading) && 'Generating...'}
             {generationStep === 'refining' && 'Refining Your Image...'}
             {generationStep === 'angles' && 'Generating New Angles...'}
             {generationStep === 'final' && 'Your Generated Image'}
           </CardTitle>
           <CardDescription>
-            {generationStep === 'initial' && 'Your AI-powered product photo will appear here.'}
+            {generationStep === 'initial' && 'Your AI-powered tools will appear here once you upload a photo.'}
+            {generationStep === 'templates' && 'Select a style to guide the creative process.'}
             {generationStep === 'ideas' && 'Select a theme to generate your perfect shot.'}
             {(generationStep === 'generating' || isLoading) && 'The AI is working its magic. This can take a moment.'}
             {generationStep === 'refining' && 'Applying your changes to the image.'}
@@ -458,6 +459,20 @@ function DashboardPage() {
                 <p className="text-lg font-medium">AI is crafting your vision...<br/>Please wait.</p>
                 <Skeleton className="absolute inset-0 w-full h-full" />
               </div>
+            ) : generationStep === 'templates' ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
+                  {templates.map((template) => (
+                    <Card
+                      key={template.name}
+                      onClick={() => handleTemplateSelection(template.name)}
+                      className="p-4 hover:bg-accent/10 hover:border-accent cursor-pointer transition-all flex flex-col items-center justify-center text-center"
+                    >
+                      <template.icon className="w-8 h-8 mb-2 text-accent" />
+                      <p className="font-semibold text-lg">{template.name}</p>
+                      <p className="text-sm text-muted-foreground">{template.description}</p>
+                    </Card>
+                  ))}
+                </div>
             ) : generationStep === 'ideas' ? (
                 <div className="grid grid-cols-1 gap-4 w-full">
                     {creativeIdeas.map((idea, index) => (
@@ -556,3 +571,5 @@ function DashboardPage() {
 }
 
 export default withAuth(DashboardPage);
+
+    
