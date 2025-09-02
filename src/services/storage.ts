@@ -17,7 +17,7 @@ interface SaveImagesResult {
 }
 
 // Hardcode the bucket name for reliability in the serverless environment.
-const BUCKET_NAME = 'photo20-xx189.appspot.com';
+const BUCKET_NAME = 'photo20-xx189.firebasestorage.app';
 
 export async function saveImagesAndCreateGenerationRecord({
     userId,

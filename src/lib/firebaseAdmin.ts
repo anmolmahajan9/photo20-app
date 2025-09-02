@@ -1,4 +1,5 @@
-// src/lib/firebaseAdmin.ts
+{// src/lib/firebaseAdmin.ts
+import 'dotenv/config';
 import * as admin from 'firebase-admin';
 import { firebaseConfig } from '@/lib/firebase';
 
