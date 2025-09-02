@@ -112,7 +112,7 @@ export async function handleGenerateFromTemplate(idToken: string, originalImage:
       template: validatedArgs.template,
     });
     
-    const { generatedImageUrls, recordId } = await saveImagesAndCreateGenerationRecord({
+    const { urls } = await saveImagesAndCreateGenerationRecord({
         userId: user.uid,
         imageURIs: [result.generatedPhotoDataUri],
         originalImageURI: validatedArgs.originalImage,
@@ -122,7 +122,7 @@ export async function handleGenerateFromTemplate(idToken: string, originalImage:
         },
     });
     
-    return { generatedImages: generatedImageUrls };
+    return { generatedImages: urls };
 
 
   } catch (error) {
@@ -155,7 +155,7 @@ export async function handleRefineImage(idToken: string, originalImage: string, 
       description: validatedArgs.prompt,
     });
     
-     const { generatedImageUrls, recordId } = await saveImagesAndCreateGenerationRecord({
+     const { urls } = await saveImagesAndCreateGenerationRecord({
         userId: user.uid,
         imageURIs: [result.generatedPhotoDataUri],
         originalImageURI: validatedArgs.originalImage,
@@ -165,7 +165,7 @@ export async function handleRefineImage(idToken: string, originalImage: string, 
         },
     });
 
-    return { generatedImages: generatedImageUrls };
+    return { generatedImages: urls };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred during image generation.';
     console.error('Error in handleRefineImage:', error);
@@ -196,7 +196,7 @@ export async function handleGenerateVariations(idToken: string, imageToVary: str
       angles: validatedArgs.angles,
     });
     
-    const { generatedImageUrls, recordId } = await saveImagesAndCreateGenerationRecord({
+    const { urls } = await saveImagesAndCreateGenerationRecord({
         userId: user.uid,
         imageURIs: result.variations,
         originalImageURI: validatedArgs.imageToVary,
@@ -206,7 +206,7 @@ export async function handleGenerateVariations(idToken: string, imageToVary: str
         },
     });
 
-    return { generatedImages: generatedImageUrls };
+    return { generatedImages: urls };
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred during image generation.';

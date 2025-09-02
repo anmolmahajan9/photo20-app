@@ -7,16 +7,16 @@ import admin from '@/lib/firebaseAdmin';
 interface SaveImagesParams {
     userId: string;
     imageURIs: string[];
-    originalImageURI: string;
+    originalImageURI: string; // Can be data URI or public URL
     context: Record<string, any>;
 }
 
 interface SaveImagesResult {
-    generatedImageUrls: string[];
+    urls: string[];
     recordId: string;
 }
 
-const BUCKET_NAME = `${process.env.FIREBASE_PROJECT_ID}.appspot.com`;
+const BUCKET_NAME = process.env.FIREBASE_STORAGE_BUCKET || `${process.env.FIREBASE_PROJECT_ID}.appspot.com`;
 
 export async function saveImagesAndCreateGenerationRecord({
     userId,
@@ -26,44 +26,58 @@ export async function saveImagesAndCreateGenerationRecord({
 }: SaveImagesParams): Promise<SaveImagesResult> {
     const bucket = admin.storage().bucket(BUCKET_NAME);
     const generationId = uuidv4();
+    const storagePaths: string[] = [];
 
     try {
         const uploadPromises = imageURIs.map(async (uri, index) => {
+            if (!uri.startsWith('data:image')) {
+                console.warn(`Skipping upload for an invalid image URI at index ${index}.`);
+                return null;
+            }
+
             const imageBuffer = Buffer.from(uri.split('base64,')[1], 'base64');
             const fileType = uri.substring(uri.indexOf('image/'), uri.indexOf(';base64'));
-            const extension = fileType.split('/')[1];
-            const fileName = `generations/${userId}/${generationId}_${index}.${extension}`;
+            const extension = fileType.split('/')[1] || 'png';
+            const fileName = `generations/${userId}/${generationId}/output_${index}.${extension}`;
+            storagePaths.push(fileName);
+            
             const file = bucket.file(fileName);
 
             await file.save(imageBuffer, {
                 metadata: {
                     contentType: fileType,
                     metadata: {
-                        firebaseStorageDownloadTokens: uuidv4(), // Required for public access
+                        firebaseStorageDownloadTokens: uuidv4(),
                     },
                 },
-                public: true, // Make the file publicly readable
+                public: true, 
             });
             
-            // Return the public URL
             return file.publicUrl();
         });
 
-        const generatedImageUrls = await Promise.all(uploadPromises);
+        const publicUrls = (await Promise.all(uploadPromises)).filter((url): url is string => url !== null);
+
+        if (publicUrls.length === 0) {
+            throw new Error('No images were successfully uploaded.');
+        }
 
         const recordRef = admin.firestore().collection('generations').doc(generationId);
         await recordRef.set({
             userId,
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            originalImageURI, // In a real app, you'd upload this too and store the URL
-            generatedImageUrls,
+            originalImageURI,
+            urls: publicUrls,
+            storagePaths: storagePaths, // Storing the direct file paths
+            status: 'success',
             context,
         });
 
-        return { generatedImageUrls, recordId: generationId };
+        return { urls: publicUrls, recordId: generationId };
 
     } catch (error) {
         console.error("Error saving images or creating record:", error);
+        // In a real app, you might add cleanup logic here to delete partially uploaded files
         throw new Error("Failed to save generated images.");
     }
 }
