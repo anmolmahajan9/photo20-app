@@ -2,7 +2,7 @@
 'use server';
 
 import { v4 as uuidv4 } from 'uuid';
-import admin from '@/lib/firebaseAdmin';
+import admin, { bucket } from '@/lib/firebaseAdmin';
 
 interface SaveImagesParams {
     userId: string;
@@ -16,16 +16,12 @@ interface SaveImagesResult {
     recordId: string;
 }
 
-// Hardcode the bucket name for reliability in the serverless environment.
-const BUCKET_NAME = 'photo20-xx189.firebasestorage.app';
-
 export async function saveImagesAndCreateGenerationRecord({
     userId,
     imageURIs,
     originalImageURI,
     context,
 }: SaveImagesParams): Promise<SaveImagesResult> {
-    const bucket = admin.storage().bucket(BUCKET_NAME);
     const generationId = uuidv4();
     const storagePaths: string[] = [];
 
@@ -76,7 +72,7 @@ export async function saveImagesAndCreateGenerationRecord({
 
         return { urls: publicUrls, recordId: generationId };
 
-    } catch (error) {
+    } catch (error) => {
         console.error("Error saving images or creating record:", error);
         throw new Error("Failed to save generated images.");
     }
