@@ -21,13 +21,16 @@ export async function saveImagesAndCreateGenerationRecord({
     originalImageURI,
     context,
 }: SaveImagesParams): Promise<SaveImagesResult> {
+    console.log('[storage.ts] Starting saveImagesAndCreateGenerationRecord for user:', userId);
     const generationId = uuidv4();
     const storagePaths: string[] = [];
 
     try {
+        console.log('[storage.ts] Processing imageURIs:', imageURIs.map(uri => uri.substring(0, 50) + '...'));
+
         const uploadPromises = imageURIs.map(async (uri, index) => {
             if (!uri.startsWith('data:image')) {
-                console.warn(`Skipping upload for an invalid image URI at index ${index}.`);
+                console.warn(`[storage.ts] Skipping upload for an invalid image URI at index ${index}.`);
                 return null;
             }
 
@@ -36,9 +39,12 @@ export async function saveImagesAndCreateGenerationRecord({
             const extension = fileType.split('/')[1] || 'png';
             const fileName = `generations/${userId}/${generationId}/output_${index}.${extension}`;
             storagePaths.push(fileName);
+
+            console.log(`[storage.ts] Preparing to upload. FileName: ${fileName}, FileType: ${fileType}`);
             
             const file = bucket.file(fileName);
 
+            console.log(`[storage.ts] Attempting to save file: ${fileName}`);
             await file.save(imageBuffer, {
                 metadata: {
                     contentType: fileType,
@@ -48,11 +54,14 @@ export async function saveImagesAndCreateGenerationRecord({
                 },
                 public: true, 
             });
+            console.log(`[storage.ts] Successfully saved file: ${fileName}`);
             
             return file.publicUrl();
         });
 
         const publicUrls = (await Promise.all(uploadPromises)).filter((url): url is string => url !== null);
+
+        console.log('[storage.ts] Generated public URLs:', publicUrls);
 
         if (publicUrls.length === 0) {
             throw new Error('No images were successfully uploaded.');
@@ -69,10 +78,11 @@ export async function saveImagesAndCreateGenerationRecord({
             context,
         });
 
+        console.log(`[storage.ts] Successfully created Firestore record: ${generationId}`);
         return { urls: publicUrls, recordId: generationId };
 
     } catch (error) {
-        console.error("Error saving images or creating record:", error);
+        console.error("[storage.ts] CRITICAL ERROR in saveImagesAndCreateGenerationRecord:", error);
         throw new Error("Failed to save generated images.");
     }
 }
