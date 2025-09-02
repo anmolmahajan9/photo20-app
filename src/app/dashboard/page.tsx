@@ -190,8 +190,9 @@ function DashboardPage() {
       const result = await handleGenerateFromTemplate(idToken, originalImage, template);
       if (result.error) throw new Error(result.error);
       
-      if (result.generatedPhotoDataUri) {
-        setGeneratedImages([result.generatedPhotoDataUri]);
+      const validImages = (result.generatedImages || []).filter(img => !!img);
+      if (validImages.length > 0) {
+        setGeneratedImages(validImages);
         setGenerationStep('final');
       } else {
         throw new Error('The AI failed to generate an image.');
@@ -225,10 +226,12 @@ function DashboardPage() {
        if (result.error) {
         throw new Error(result.error);
       }
-      if (result.generatedPhotoDataUri) {
-          const newImages = generatedImages.map(img => img === activeImage ? result.generatedPhotoDataUri! : img);
+      const validImages = (result.generatedImages || []).filter(img => !!img);
+      if (validImages.length > 0) {
+          const newImage = validImages[0];
+          const newImages = generatedImages.map(img => img === activeImage ? newImage : img);
           setGeneratedImages(newImages);
-          setActiveImage(result.generatedPhotoDataUri);
+          setActiveImage(newImage);
           setGenerationStep('final');
       } else {
           throw new Error('Refinement failed to produce an image.');

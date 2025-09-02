@@ -7,6 +7,7 @@ import { z } from 'zod';
 import admin from '@/lib/firebaseAdmin';
 import type { User } from 'firebase-admin/auth';
 import { FieldValue } from 'firebase-admin/firestore';
+import { saveImagesAndCreateGenerationRecord } from '@/services/storage';
 
 
 async function getAuthenticatedUser(idToken: string): Promise<User | null> {
@@ -72,8 +73,8 @@ async function checkAndIncrementGenerationCount(uid: string): Promise<boolean> {
         });
         return true;
     } catch (error) {
-        if ((error as any).code === 'NOT_FOUND') {
-            // Document doesn't exist, create it and set count to 1
+        if ((error as any).code === 'NOT_FOUND' || (error as any).details?.includes('NOT_FOUND')) {
+             // Document doesn't exist, create it and set count to 1
              const now = new Date();
              const today = now.toISOString().split('T')[0];
              await userDocRef.set({
@@ -111,7 +112,18 @@ export async function handleGenerateFromTemplate(idToken: string, originalImage:
       template: validatedArgs.template,
     });
     
-    return { generatedPhotoDataUri: result.generatedPhotoDataUri };
+    const { generatedImageUrls, recordId } = await saveImagesAndCreateGenerationRecord({
+        userId: user.uid,
+        imageURIs: [result.generatedPhotoDataUri],
+        originalImageURI: validatedArgs.originalImage,
+        context: {
+            type: 'template',
+            template: validatedArgs.template,
+        },
+    });
+    
+    return { generatedImages: generatedImageUrls };
+
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred during image generation.';
@@ -123,7 +135,7 @@ export async function handleGenerateFromTemplate(idToken: string, originalImage:
 
 const refineActionSchema = z.object({
   idToken: z.string(),
-  originalImage: z.string().startsWith('data:image', { message: 'Invalid image format. Please provide a data URI.' }),
+  originalImage: z.string().startsWith('http', { message: 'Invalid image format. Must be a public URL.'}),
   prompt: z.string(),
 });
 
@@ -143,7 +155,17 @@ export async function handleRefineImage(idToken: string, originalImage: string, 
       description: validatedArgs.prompt,
     });
     
-    return { generatedPhotoDataUri: result.generatedPhotoDataUri };
+     const { generatedImageUrls, recordId } = await saveImagesAndCreateGenerationRecord({
+        userId: user.uid,
+        imageURIs: [result.generatedPhotoDataUri],
+        originalImageURI: validatedArgs.originalImage,
+        context: {
+            type: 'refinement',
+            prompt: validatedArgs.prompt,
+        },
+    });
+
+    return { generatedImages: generatedImageUrls };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred during image generation.';
     console.error('Error in handleRefineImage:', error);
@@ -153,7 +175,7 @@ export async function handleRefineImage(idToken: string, originalImage: string, 
 
 const variationsActionSchema = z.object({
   idToken: z.string(),
-  imageToVary: z.string().startsWith('data:image', { message: 'Invalid image format. Please provide a data URI.' }),
+  imageToVary: z.string().startsWith('http', { message: 'Invalid image format. Must be a public URL.' }),
   angles: z.array(z.string()).min(1, 'Please select at least one angle.'),
 });
 
@@ -174,7 +196,17 @@ export async function handleGenerateVariations(idToken: string, imageToVary: str
       angles: validatedArgs.angles,
     });
     
-    return { generatedImages: result.variations };
+    const { generatedImageUrls, recordId } = await saveImagesAndCreateGenerationRecord({
+        userId: user.uid,
+        imageURIs: result.variations,
+        originalImageURI: validatedArgs.imageToVary,
+        context: {
+            type: 'variation',
+            angles: validatedArgs.angles,
+        },
+    });
+
+    return { generatedImages: generatedImageUrls };
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred during image generation.';
