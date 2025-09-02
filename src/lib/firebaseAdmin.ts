@@ -1,9 +1,10 @@
 // src/lib/firebaseAdmin.ts
 import * as admin from 'firebase-admin';
+import { firebaseConfig } from '@/lib/firebase';
 
 const serviceAccount: admin.ServiceAccount = {
-  projectId: process.env.FIREBASE_PROJECT_ID,
-  clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+  projectId: firebaseConfig.projectId,
+  clientEmail: `firebase-adminsdk-v29w2@${firebaseConfig.projectId}.iam.gserviceaccount.com`,
   privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
 };
 

@@ -16,7 +16,8 @@ interface SaveImagesResult {
     recordId: string;
 }
 
-const BUCKET_NAME = process.env.FIREBASE_STORAGE_BUCKET || `${process.env.FIREBASE_PROJECT_ID}.appspot.com`;
+// Hardcode the bucket name for reliability in the serverless environment.
+const BUCKET_NAME = 'photo20-xx189.appspot.com';
 
 export async function saveImagesAndCreateGenerationRecord({
     userId,
@@ -68,7 +69,7 @@ export async function saveImagesAndCreateGenerationRecord({
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
             originalImageURI,
             urls: publicUrls,
-            storagePaths: storagePaths, // Storing the direct file paths
+            storagePaths: storagePaths, 
             status: 'success',
             context,
         });
@@ -77,7 +78,6 @@ export async function saveImagesAndCreateGenerationRecord({
 
     } catch (error) {
         console.error("Error saving images or creating record:", error);
-        // In a real app, you might add cleanup logic here to delete partially uploaded files
         throw new Error("Failed to save generated images.");
     }
 }
