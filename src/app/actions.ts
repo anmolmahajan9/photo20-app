@@ -97,20 +97,26 @@ const templateActionSchema = z.object({
 });
 
 export async function handleGenerateFromTemplate(idToken: string, originalImage: string, template: string) {
+   console.log('[actions.ts] handleGenerateFromTemplate called on server with template:', template);
    try {
     const validatedArgs = templateActionSchema.parse({ idToken, originalImage, template });
+    console.log('[actions.ts] Arguments validated successfully.');
     
     const user = await getAuthenticatedUser(validatedArgs.idToken);
     if (!user) {
+      console.error('[actions.ts] Authentication failed. User not found.');
       return { error: 'Authentication failed. Please sign in again.' };
     }
+    console.log('[actions.ts] User authenticated:', user.uid);
 
     await checkAndIncrementGenerationCount(user.uid);
+    console.log('[actions.ts] Generation count checked/incremented.');
     
     const result = await generateAIThemeFromTemplate({
       photoDataUri: validatedArgs.originalImage,
       template: validatedArgs.template,
     });
+    console.log('[actions.ts] AI theme generated.');
     
     const { urls } = await saveImagesAndCreateGenerationRecord({
         userId: user.uid,
@@ -121,13 +127,14 @@ export async function handleGenerateFromTemplate(idToken: string, originalImage:
             template: validatedArgs.template,
         },
     });
+    console.log('[actions.ts] Images saved, urls:', urls);
     
     return { generatedImages: urls };
 
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred during image generation.';
-    console.error('Error in handleGenerateFromTemplate:', error);
+    console.error('[actions.ts] Error in handleGenerateFromTemplate:', error);
     return { error: errorMessage };
   }
 }

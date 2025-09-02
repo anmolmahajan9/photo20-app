@@ -186,8 +186,12 @@ function DashboardPage() {
     setGeneratedImages([]);
     
     try {
+      console.log("[dashboard] Calling handleGenerateFromTemplate with template:", template);
+      console.log("[dashboard] Original image length:", originalImage.length);
       const idToken = await user.getIdToken();
       const result = await handleGenerateFromTemplate(idToken, originalImage, template);
+      
+      console.log("[dashboard] Result from server action:", result);
       if (result.error) throw new Error(result.error);
       
       const validImages = (result.generatedImages || []).filter(img => !!img);
@@ -200,6 +204,7 @@ function DashboardPage() {
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
+      console.error("[dashboard] Error during template selection:", error);
       toast({ title: 'Image Generation Failed', description: errorMessage, variant: 'destructive' });
       setGenerationStep('templates'); // Go back to template selection
     } finally {
