@@ -1,4 +1,3 @@
-{// src/services/storage.ts
 'use server';
 
 import { v4 as uuidv4 } from 'uuid';
@@ -72,7 +71,7 @@ export async function saveImagesAndCreateGenerationRecord({
 
         return { urls: publicUrls, recordId: generationId };
 
-    } catch (error) => {
+    } catch (error) {
         console.error("Error saving images or creating record:", error);
         throw new Error("Failed to save generated images.");
     }
