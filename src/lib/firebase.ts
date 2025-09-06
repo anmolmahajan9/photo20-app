@@ -3,13 +3,17 @@ import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
+// THIS FILE IS DEPRECATED FOR CLIENT-SIDE USE.
+// For client-side auth, please use 'src/lib/firebaseClient.ts'
+// This file can still be used for client-side Firestore access if needed.
+
 export const firebaseConfig = {
-  projectId: "photo20-xx189",
-  appId: "1:1097066143064:web:87f461f28faff93013192d",
-  storageBucket: "photo20-xx189.firebasestorage.app",
-  apiKey: "AIzaSyB-m4y1_3a6-n7K_q4N5f6g7h8i9j0k1l2",
-  authDomain: "photo20-xx189.firebaseapp.com",
-  messagingSenderId: "1097066143064"
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID!,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID!,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET!,
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY!,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN!,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID!,
 };
 
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();

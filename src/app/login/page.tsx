@@ -3,8 +3,8 @@
 
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { signInWithPopup } from 'firebase/auth';
-import { auth, googleProvider } from '@/lib/firebase';
+import { signInWithPopup, signInWithRedirect } from 'firebase/auth';
+import { auth, googleProvider } from '@/lib/firebaseClient';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
@@ -38,32 +38,28 @@ export default function LoginPage() {
     const handleGoogleSignIn = async () => {
         try {
             await signInWithPopup(auth, googleProvider);
-            // onAuthStateChanged in AuthContext will handle the redirect
             toast({
                 title: 'Success',
                 description: 'You have successfully signed in.',
             });
+             router.replace('/dashboard');
         } catch (error: any) {
-            // This error code means the user closed the popup.
-            // We can safely ignore it.
-            if (error.code === 'auth/cancelled-popup-request') {
-                console.log('Sign-in cancelled by user.');
-                return;
+            if (String(error?.message || error).includes('operation is not supported') ||
+                String(error?.code || '').includes('auth/operation-not-supported-in-this-environment') ||
+                String(error?.code || '').includes('auth/cancelled-popup-request')) {
+                    await signInWithRedirect(auth, googleProvider);
+            } else {
+                 console.error(error);
+                toast({
+                    title: 'Sign-in Failed',
+                    description: error.message || 'Could not sign in with Google. Please try again.',
+                    variant: 'destructive',
+                });
             }
-
-            console.error(error);
-            toast({
-                title: 'Sign-in Failed',
-                description: 'Could not sign in with Google. Please try again.',
-                variant: 'destructive',
-            });
         }
     };
     
-    // AuthContext handles the loading state, so we don't need a separate loading UI here
     if (loading || user) {
-        // The AuthProvider shows a global loading indicator, so we can return null
-        // to avoid a flash of the login page.
         return null; 
     }
 

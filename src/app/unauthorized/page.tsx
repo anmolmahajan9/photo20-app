@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { auth } from '@/lib/firebase';
+import { auth } from '@/lib/firebaseClient';
 import { useAuth } from '@/context/AuthContext';
 import { useEffect } from 'react';
 
