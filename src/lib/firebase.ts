@@ -1,24 +1,8 @@
 // src/lib/firebase.ts
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
 
 // THIS FILE IS DEPRECATED FOR CLIENT-SIDE USE.
 // For client-side auth, please use 'src/lib/firebaseClient.ts'
-// This file can still be used for client-side Firestore access if needed.
+// This file can still be used for other client-side Firebase services like Firestore if needed, but it should import 'app' from 'firebaseClient'.
+// It is recommended to consolidate all client-side Firebase initializations into 'firebaseClient.ts'.
 
-export const firebaseConfig = {
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID!,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID!,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET!,
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY!,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN!,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID!,
-};
-
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-const auth = getAuth(app);
-const db = getFirestore(app);
-const googleProvider = new GoogleAuthProvider();
-
-export { app, auth, db, googleProvider };
+console.warn("DEPRECATED: src/lib/firebase.ts is deprecated. Please use src/lib/firebaseClient.ts for Firebase auth initialization.");

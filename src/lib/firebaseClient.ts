@@ -1,7 +1,9 @@
+
 // src/lib/firebaseClient.ts
 'use client';
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, browserLocalPersistence, setPersistence, GoogleAuthProvider } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY!,
@@ -17,3 +19,4 @@ export const app = getApps().length ? getApps()[0]! : initializeApp(firebaseConf
 export const auth = getAuth(app);
 setPersistence(auth, browserLocalPersistence);
 export const googleProvider = new GoogleAuthProvider();
+export const db = getFirestore(app);
